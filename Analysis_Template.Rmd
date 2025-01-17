@@ -1,0 +1,116 @@
+---
+title: "Analysis Template"
+author: "Kaydee Barker"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document: default #set as default knit option
+    toc: yes
+    
+  word_document:
+    toc: yes
+	   
+	html_document:
+    toc: yes #table of contents
+    number_sections: true #number the table of contents items
+    toc_float: yes #floats at top corner as user scrolls
+    code_folding: hide #hide until user clicks to show (or could do opposite, or none)
+  
+---
+
+# Introduction
+
+Welcome to my template for data exploration and analysis in ecosystem ecology! Since I first started my coding journey in 2020, I've learned a bit about how to successfully run statistics in ecosystem ecology, and some useful tricks to make the process quick and efficient in R. This template is the next step on that journey and will hopefully serve as a useful, evolving, collaborative tool for myself and others in our field for years to come! Please do reach out to me through Github or at [kaydee.barker@manchester.ac.uk](mailto:kaydee.barker@manchester.ac.uk) if you have questions or would like to contribute to making this template better!
+
+# Set up
+
+## Global settings
+
+Start with a clean slate and set default settings for code blocks. Some options include:
+
+> eval = TRUE #run code in chunk (FALSE will not run)
+echo = TRUE #display code in knit output (FALSE will hide)
+include = TRUE #include chunk in knit output (FALSE will not include)
+message = TRUE #display code messages in knit output (FALSE will hide)
+warning = TRUE #display code warnings (FALSE will hide)
+error = FALSE #stop rendor when error occurs (TRUE will continue and display error messages in knit output)
+
+```{r setup, include=FALSE}
+
+rm(list=ls()) #clear global environment/workspace
+knitr::opts_chunk$set(echo = TRUE) #default display code in knit output (FALSE will hide)
+
+getwd #see what your current working directory is
+
+#If you need to change your working directory, adjust the following line
+#setwd("C:/...folder") #set working directory
+
+```
+
+## Load libraries (and install if needed)
+
+Load libraries that are commonly used for data analysis and visualization in our field.
+
+```{r libraries, warning=FALSE, include=FALSE}
+
+#Create groups of packages/libraries 
+
+##1. For data reading and manipulation - could just do tidyverse and a few others, or make group of specific libraries for faster loading
+datalib <- c("dplyr", "tidyr", "readr", "read_excel", "stringr", "tibble", "reshape2", "janitor") 
+
+##2. For data visualization (note ggplot2 is in tidyverse)
+vislib <- c("ggplot2", "ggthemes", "ggfortify", "ggrepel", "plotrix", "RColorBrewer", "Cairo")
+
+##3. For calculation and stats functions, including ecology-specific libraries
+statlib <- c("car", "MASS", "rcompanion", "zoo", "lme4", "MuMIn", "emmeans", "performance", "see", "corrplot", "BAT", "vegan")
+
+#Install packages as needed - commented out, but remove # and adjust as needed
+##as a group:
+#lapply(c(datalib, vislib, statlib), install.packages, character.only = TRUE)
+
+##or individually:
+#install.packages("janitor") #install janitor to help clean up data
+
+#Load libraries
+lapply(c(datalib, vislib, statlib), library, character.only = TRUE)
+
+```
+
+
+# Load data
+
+Load in your data here by adjusting the code in this block. I've included some possible file types.
+
+```{r load data, echo=FALSE}
+
+#Load in your data
+
+#Read in csvs
+dataframe1 <- read_csv("dataframe.csv") #load csv into R from current working directory
+dataframe2 <- read.csv("C:/Users/...pathway/dataframe.csv") #load csv into R from any path on your computer
+
+#Read in excel file with xlsx extension - uses read_excel library
+dataframe <- read_xlsx(
+  "dataframe.xlsx", #excel file from current working directory
+	sheet = "SheetName", #define tab/sheet to read  
+	col_names = TRUE, #use header row for column names  
+	col_types = NULL, #guess data types  
+	na = "", #treat blank cells as NA  
+	trim_ws = TRUE, #trim any whitespace/unused columns and rows  
+	skip = 6, #skip 6 rows to get to pivot table data  
+	n_max = Inf, #set maximum number of rows to include - infinity
+	guess_max = min(1000, Inf), #how many rows to use to guess data types  
+	progress = readxl_progress(), #display progress in reading in data  
+	.name_repair = "unique" #makes sure all column names not empty or duplicated
+)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
