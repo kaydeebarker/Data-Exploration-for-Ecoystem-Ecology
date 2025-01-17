@@ -17,9 +17,7 @@ output:
   
 ---
 
-# Introduction
 
-Welcome to my template for data exploration and analysis in ecosystem ecology! Since I first started my coding journey in 2020, I've learned a bit about how to successfully run statistics in ecosystem ecology, and some useful tricks to make the process quick and efficient in R. This template is the next step on that journey and will hopefully serve as a useful, evolving, collaborative tool for myself and others in our field for years to come! Please do reach out to me through Github or at [kaydee.barker@manchester.ac.uk](mailto:kaydee.barker@manchester.ac.uk) if you have questions or would like to contribute to making this template better!
 
 # Set up
 
@@ -74,6 +72,48 @@ statlib <- c("car", "MASS", "rcompanion", "zoo", "lme4", "MuMIn", "emmeans", "pe
 lapply(c(datalib, vislib, statlib), library, character.only = TRUE)
 
 ```
+
+## Define custom color palettes, labels, data orders, and settings for plots
+
+```{r design, echo=FALSE}
+
+#color palettes
+
+#color palette example using RGB codes
+colors <- c("#3DD978", "#995551", "#D9443D", "#518464")
+
+#color palette example with named colors
+colors2 <- c("khaki", "darkolivegreen", "darkred", "bisque")
+
+#color palette with gradient
+colors_ramp <- colorRampPalette(c("darkgreen", "azure","goldenrod"))(20)
+
+#Custom ggplot configuration - make all backgrounds transparent, no gridlines
+transparentbg <- theme(
+  panel.background = element_rect(fill='transparent'),
+  plot.background = element_rect(fill='transparent', color=NA),
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  legend.background = element_rect(fill='transparent'),
+  legend.box.background = element_rect(fill='transparent'))
+
+#labels for graphs
+
+lbls_fg <- c("per_graminoid"="Graminoid", "per_forb"="Forb", "per_legume"="Legume", "per_woody"="Woody")
+
+#order for data
+
+#order sites by photosynthetic pathway dominance
+order_sites_ps <- c("Cowichan", "Smith Prairie", "Spindletop", "Elliot Chapparal", "Val Mustair", "Bogong", "Cereep", "Las Chilcas", "Cedar Point Biological Station", "Shortgrass Steppe LTER", "Cedar Creek", "Ukulinga", "Chichaqua Bottoms", "Hall's Prairie", "Boulder South Campus", "Burrawan", "Ethabuka South Site")
+
+#order columns
+order_cols <- c("Site", "Site_ID", "SOM_C", "SOM_N", "SOM_CN", "POM_C", "POM_N", "POM_CN", "MAOM_C", "MAOM_N", "MAOM_CN", "per_POM", "per_MAOM", "fPOM_C", "fPOM_N", "fMAOM_C", "fMAOM_N", "MAT", "T_var", "MAP", "P_var", "sand", "silt", "clay", "soil_P", "soil_Ca", "soil_Mg", "per_C3", "per_C4", "per_CAMint", "per_unknown", "per_graminoid", "per_forb", "per_legume", "per_woody", "speciesr", "shannon", "simpson", "SLA", "SRL", "root_diam", "RMF", "myc", "root_depth", "leaf_CN", "root_C", "root_N", "root_CN", "lignin_conc", "per_crudef")
+
+
+
+
+```
+
 
 
 # Load data
