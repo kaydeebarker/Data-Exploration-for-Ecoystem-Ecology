@@ -77,18 +77,19 @@ lapply(c(datalib, vislib, statlib), library, character.only = TRUE)
 
 ```{r design, echo=FALSE}
 
-#color palettes
+#Color palettes
 
-#color palette example using RGB codes
+#color palette example using hex codes
 colors <- c("#3DD978", "#995551", "#D9443D", "#518464")
 
 #color palette example with named colors
 colors2 <- c("khaki", "darkolivegreen", "darkred", "bisque")
 
-#color palette with gradient
+#color palette with gradient with 20 steps
 colors_ramp <- colorRampPalette(c("darkgreen", "azure","goldenrod"))(20)
 
-#Custom ggplot configuration - make all backgrounds transparent, no gridlines
+
+#Custom ggplot configuration - make all backgrounds transparent, no gridlines. This allows transparent png or pdf export.
 transparentbg <- theme(
   panel.background = element_rect(fill='transparent'),
   plot.background = element_rect(fill='transparent', color=NA),
@@ -97,38 +98,57 @@ transparentbg <- theme(
   legend.background = element_rect(fill='transparent'),
   legend.box.background = element_rect(fill='transparent'))
 
-#labels for graphs
 
-lbls_fg <- c("per_graminoid"="Graminoid", "per_forb"="Forb", "per_legume"="Legume", "per_woody"="Woody")
+#Order for data
 
-#order for data
+#select and change the order of variable columns in your dataframe
+order_cols <- c("site", "variable1", "variable2", "variable3")
 
-#order sites by photosynthetic pathway dominance
-order_sites_ps <- c("Cowichan", "Smith Prairie", "Spindletop", "Elliot Chapparal", "Val Mustair", "Bogong", "Cereep", "Las Chilcas", "Cedar Point Biological Station", "Shortgrass Steppe LTER", "Cedar Creek", "Ukulinga", "Chichaqua Bottoms", "Hall's Prairie", "Boulder South Campus", "Burrawan", "Ethabuka South Site")
+#create an order of observations within a variable to override the default order for plots
+order_obs <- c("obs1", "obs4", "obs2", "obs5", "obs3")
 
-#order columns
-order_cols <- c("Site", "Site_ID", "SOM_C", "SOM_N", "SOM_CN", "POM_C", "POM_N", "POM_CN", "MAOM_C", "MAOM_N", "MAOM_CN", "per_POM", "per_MAOM", "fPOM_C", "fPOM_N", "fMAOM_C", "fMAOM_N", "MAT", "T_var", "MAP", "P_var", "sand", "silt", "clay", "soil_P", "soil_Ca", "soil_Mg", "per_C3", "per_C4", "per_CAMint", "per_unknown", "per_graminoid", "per_forb", "per_legume", "per_woody", "speciesr", "shannon", "simpson", "SLA", "SRL", "root_diam", "RMF", "myc", "root_depth", "leaf_CN", "root_C", "root_N", "root_CN", "lignin_conc", "per_crudef")
-
-
-
+#Labels for plots
+#example change variable names to have prettier and more consistent names in your plots
+lbls_variable <- c("super_long_ugly_name"="Pretty Name 1", "confusing_name"="Pretty Name 2", "name"="Pretty Name 3")
 
 ```
 
 
 
-# Load data
+# Prepare data
 
-Load in your data here by adjusting the code in this block. I've included some possible file types.
+## Download data from a web source
+
+If you need public data for your project, you can create an if/else loop to download the data if it isn't already in your working directory.
+
+```{r download data, echo=FALSE}
+
+#Download data
+
+#if/else loop to download a file if the file isn't already in your working directory
+if(file.exists('/file.csv')){ #if a file exists in working directory
+		print('downloaded') #print result
+	} else{ #if it doesn't exist
+		download.file("https://...", destfile= "filename.zip") #download a zipped file from a link and name it
+		unzip("filename.zip", exdir= ".") #unzip the downloaded file
+		file.remove("filename.zip") #remove the zipped file after it's unzipped
+	} #end loop
+
+```
+
+## Load in data
+
+Load in your data here by adjusting the code in this block. I've included a couple possible file types.
 
 ```{r load data, echo=FALSE}
 
 #Load in your data
 
-#Read in csvs
+#Read in csvs from your computer
 dataframe1 <- read_csv("dataframe.csv") #load csv into R from current working directory
 dataframe2 <- read.csv("C:/Users/...pathway/dataframe.csv") #load csv into R from any path on your computer
 
-#Read in excel file with xlsx extension - uses read_excel library
+#Read in excel file with xlsx extension from your computer - uses read_excel library 
 dataframe <- read_xlsx(
   "dataframe.xlsx", #excel file from current working directory
 	sheet = "SheetName", #define tab/sheet to read  
@@ -145,12 +165,114 @@ dataframe <- read_xlsx(
 
 ```
 
-## Including Plots
+## Cleaning and manipulating data
 
-You can also embed plots, for example:
+Your data may need a bit of manipulation to get started. For example, tidying column names, changing data types, calculating additional columns, pivoting, and combining dataframes are common needs at the beginning of analysis. Adjust the code in this section to suit the needs of your project.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Look at and clean data
+
+It can be helpful to look at and adjust some of the characteristics of your dataframe before you continue to analysis. I've included a few options below you can adjust or delete as needed to clean and prepare your data for analysis.
+
+Note the Tidyverse mutate(across()) function or similar mutate_at() can be adjusted to any specific column numbers or names, data type with the added (where()) argument, or "everything" to apply to the entire dataframe. You can see more selection options in the [tidyselect documentation](https://tidyselect.r-lib.org/reference/language.html).
+
+```{r clean data, echo=FALSE}
+
+#Cursory look at your data to see if it needs cleaning up
+head(dataframe) #view the first 6 rows
+str(dataframe) #view the structure of the dataframe (columns, data types, etc.)
+
+#Use base, dplyr (tidyverse) and janitor libraries to clean data
+dataframe <- dataframe %>%
+  clean_names() %>% #clean column names to lowercase, with underscores
+  row_to_names(row_number = 1) %>% #set the first row as the header column
+  column_to_rownames(var="variable1") %>% # sets variable column as row names
+  mutate(across(where(is.character), as.factor)) %>% #define variables that should be treated as a factor (usually those containing a characters, such as "site" or "treatment")
+  mutate(across(c(5:10), as.numeric)) #define numeric variables
+
+#Look at full dataframe to see that you're satisfied with the clean-up
+dataframe #view full dataframe
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Deal with missing values
+
+If you have missing values (called NA values) in your data, there are a few ways you could choose to handle them to avoid errors further down the road. Note you'll still need to set an action to deal with NA values in some analyses, but making sure that all of your missing values are labelled correctly, filled in, or removed now can ensure all goes smoothly later.
+
+#### Set missing values to NA
+
+Functions in R have arguments to deal with NA values. For example, the argument na.rm = TRUE will remove NA values before computation in base R functions. In many other functions, na.action determines what to do with NA values. It generally defaults to na.action = na.fail, throwing an error, but na.action = na.omit will perform a function with only complete cases, i.e. omit observations with NA values. 
+
+In order to use NA arguments though, you'd need to have missing values coded as NA. From looking at your data above, you might have noticed how missing values were handled - were they set as 0, left blank, or was another value typed in, such as "NULL"? If you had missing values input as something other than NA but should be NA, you can replace those values with NA. Below are examples from base R and tidyverse dplyr library.
+
+```{r set NA 1, echo=FALSE}
+
+#Replace across a dataframe with base R
+dataframe[dataframe == 0] <- NA #replace 0 with NA across a dataframe
+dataframe[dataframe == ""] <- NA #replace blanks with NA across a dataframe
+dataframe[dataframe == "NULL"] <- NA #replace any value defined here with NA across a dataframe
+is.na(dataframe) <- sapply(dataframe, is.infinite) #turn infinite values into NA values
+
+#Replace values across a dataframe using dplyr (tidyverse)
+dataframe <- dataframe %>%
+	mutate(across(where(is.numeric), ~na_if(.,0))) %>% #replace 0s with NA across all numeric variables
+	mutate(across(where(is.factor), ~na_if(.,""))) %>% #replace blanks with NA across all factor variables
+  mutate(across(everything(), ~na_if(.,"NULL"))) #replace any value defined here with NA across all variables
+
+#Replace across a specific column with base R
+dataframe$column[dataframe$column == 0] <- NA #replace 0 with NA in a specific column
+
+#Replace across specific columns with dplyr (tidyverse)
+dataframe <- dataframe %>%
+  mutate_at(vars(variable1, variable2), ~na_if(.,0)) #replace 0s with NA
+
+```
+
+#### Set a value to NA values
+
+There are also instances in which you might want to do the opposite from above and turn NA values into zeros or other values. For example, you may want to use zeros instead of NA for missing values for plant cover or observations of an animal, or you may want to analyze how many missing values are in a variable. Here again you can change these using either base R or tidyverse dplyr library.
+
+```{r set NA 2, echo=FALSE}
+
+#Replace values across a dataframe using base R
+dataframe[is.na(dataframe)] <- 0 #replace NA values with 0 across a dataframe
+dataframe[is.na(dataframe)] <- "NULL" #replace NA values with NULL across a dataframe
+
+#Replace values across a dataframe using dplyr (tidyverse)
+dataframe <- dataframe %>%
+	replace(is.na(.), 0) #replace NA values with 0 - can replace with any value or string
+
+#Replace across a specific column with base R
+dataframe$column[is.na(dataframe$column)] <- 0 #replace NA values with 0 in a column
+dataframe$column[is.na(dataframe$column)] <- "NULL" #replace NA values with NULL in a column
+
+#Replace across specific columns with dplyr (tidyverse)
+dataframe <- dataframe %>%
+  mutate_at(vars(variable1, variable2), ~replace_na(., 0)) #replace NA values with 0
+
+```
+
+#### Interpolate missing values
+
+A third option that works well for some kinds of data is to interpolate the missing values so you don’t have any NA values. This option might work best for missing values in a time series when you have an earlier and later measured value. Of course this option should be approached with caution to avoid having misleading results.
+
+Values can be interpolated for specific variables using the zoo package. Linear interpolation uses a straight line between points to estimate missing data. Polynomial interpolation is generally more accurate for most data, as it defines a complex shape from the existing data before estimating missing values. 
+
+```{r interpolate, echo=FALSE}
+
+#Interpolate missing values with zoo package and dplyr (tidyverse)
+dataframe_int <- dataframe %>%
+	mutate(variable1 = na.approx(variable1), #interpolate via linear interpolation
+	variable2 = na.spline(variable2)) #interpolate via polynomial interpolation 
+
+```
+
+### View distribution of data
+
+Now that the data is cleaned and missing values are dealt with, it can be useful to take a look at the distribution of the data to identify potential
+
+```{r data dist, fig.align = "center", out.width='80%', fig.cap="Histograms of raw data distributions."}
+
+#ggplot histograms of data
+ggplot(melt(dataframe), aes(x=value)) + geom_histogram() + facet_wrap(~variable)
+
+```
