@@ -23,7 +23,7 @@ output:
 
 ## Global settings
 
-Start with a clean slate and set default settings for code blocks. Some options include:
+Start with a clean slate and set default settings for code chunks. Some options include:
 
 > eval = TRUE #run code in chunk (FALSE will not run)
 echo = TRUE #display code in knit output (FALSE will hide)
@@ -73,7 +73,9 @@ lapply(c(datalib, vislib, statlib), library, character.only = TRUE)
 
 ```
 
-## Define custom color palettes, labels, data orders, and settings for plots
+## Define custom design settings for plots
+
+To streamline a cohesive look for your plots, you can define custom color palettes and plot settings. Here I've provided examples of how you can define color palettes, and create a custom ggplot theme. You can adjust these to suit your project's needs.
 
 ```{r design, echo=FALSE}
 
@@ -88,31 +90,33 @@ colors2 <- c("khaki", "darkolivegreen", "darkred", "bisque")
 #color palette with gradient with 20 steps
 colors_ramp <- colorRampPalette(c("darkgreen", "azure","goldenrod"))(20)
 
+#Custom ggplot configurations 
 
-#Custom ggplot configuration - make all backgrounds transparent, no gridlines. This allows transparent png or pdf export.
-transparentbg <- theme(
-  panel.background = element_rect(fill='transparent'),
-  plot.background = element_rect(fill='transparent', color=NA),
-  panel.grid.major = element_blank(),
-  panel.grid.minor = element_blank(),
-  legend.background = element_rect(fill='transparent'),
-  legend.box.background = element_rect(fill='transparent'))
-
-
-#Order for data
-
-#select and change the order of variable columns in your dataframe
-order_cols <- c("site", "variable1", "variable2", "variable3")
-
-#create an order of observations within a variable to override the default order for plots
-order_obs <- c("obs1", "obs4", "obs2", "obs5", "obs3")
-
-#Labels for plots
-#example change variable names to have prettier and more consistent names in your plots
-lbls_variable <- c("super_long_ugly_name"="Pretty Name 1", "confusing_name"="Pretty Name 2", "name"="Pretty Name 3")
+#Create a custom theme for ggplot with font, legend, and background settings. Transparent allows transparent png or pdf export.
+my_theme <- theme(text = element_text(family = "Arial", size = 12, color = "grey10"), #set universal font family, size, and color
+              plot.title = element_text(size = 20, color = "darkblue", face="bold"), #set title size, color, bold
+              plot.title.position = "plot", #set title position
+              plot.subtitle = element_text(size = 16, color = "blue", face="italics"), #set subtitle size, color, italics
+              legend.title = element_blank(), #remove legend title
+              legend.position="bottom", legend.box = "horizontal", #show legend at the bottom of your chart with variables listed side by side rather than stacked
+              legend.background = element_rect(fill='bisque', linetype="solid", size=0.5, color ="darkblue"), #set appearance of legend box with fill color, and outline size, type, and color
+              panel.background = element_rect(fill='transparent'), plot.background = element_rect(fill='transparent', color=NA), #make backgrounds transparent
+              panel.grid.major = element_blank(), panel.grid.minor = element_blank()) #no gridlines
 
 ```
 
+Additionally, you can pre-define the order in which data are plotted and labels for your plots to make them more readable and consistent. This can be especially helpful if you have long, vague, or confusing variable names that you'd like to change for your plots. 
+
+```{r labels, echo=FALSE}
+
+#Create an order of observations within a variable to override the default order for plots
+order_variable <- c("obs1", "obs4", "obs2", "obs5", "obs3")
+
+#Labels for plots
+#example change variable names to have prettier and more consistent names in your plots
+lbls_variable <- c("super_long_ugly_name"="Pretty Name 1", "vague_name"="Pretty Name 2", "confusing_name"="Pretty Name 3")
+
+```
 
 
 # Prepare data
@@ -138,7 +142,7 @@ if(file.exists('/file.csv')){ #if a file exists in working directory
 
 ## Load in data
 
-Load in your data here by adjusting the code in this block. I've included a couple possible file types.
+Load in your data here by adjusting the code in this chunk. I've included a couple possible file types.
 
 ```{r load data, echo=FALSE}
 
@@ -266,13 +270,233 @@ dataframe_int <- dataframe %>%
 
 ```
 
-### View distribution of data
+## View variances and distribution of data
 
-Now that the data is cleaned and missing values are dealt with, it can be useful to take a look at the distribution of the data to identify potential
+Now that the data is cleaned and missing values are dealt with, it can be useful to take a look at the variances and distribution of the data. This can help you assess potential data standardization and transformation needs to meet assumptions for some analyses. Adjust column numbers below.
 
 ```{r data dist, fig.align = "center", out.width='80%', fig.cap="Histograms of raw data distributions."}
+
+#Calculate variances for variables - the diagonal values in the matrix are variances
+var(dataframe[, 5:10]) #calculate variance for columns 5-10
 
 #ggplot histograms of data
 ggplot(melt(dataframe), aes(x=value)) + geom_histogram() + facet_wrap(~variable)
 
 ```
+
+## Data transformations
+
+### Standardization
+
+A common need for analyses such as ordination methods (principal components analysis (PCA), nonmetric multidimensional scaling (NMDS), redundancy analysis (RDA), etc.) is for data to have the same amount of variance across variables. For this, you need to standardize your data to allow for a more accurate comparison and analysis of the relative influence of variables that are measured at different scales and in different units.
+
+Standardization generally involves dividing values by a calculated number to reduce variance. Z-score standardization requires dividing by the Z-score, which is the number of standard deviations each data point is from the mean. 
+
+```{r data std, fig.align = "center", out.width='80%', fig.cap="Histograms of standardized data distributions."}
+
+#Z-score standardize numeric data
+df_std <- dataframe %>%
+  mutate_if(is.numeric, ~scale(., center = TRUE, scale = TRUE))
+
+#ggplot histograms of data
+ggplot(melt(df_std, value.name = "value"),aes(x=value)) + geom_histogram() + facet_wrap(~variable)
+
+```
+
+### Log and arcsin transformations
+
+If your data is not normally distributed, you may need to transform it to meet the assumptions of some statistical tests. 
+
+Let's start with a couple widely-used transformations. If your data is right (positively) skewed, you can log transform it to make it more normally distributed. If your data is a percentage value, you can arcsin transform it to stabilize the variance.
+
+```{r log arcsin, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after log and arcsin transformations."}
+
+#log and arcsin transform, and scale
+df_log_asin <- dataframe %>%
+  mutate(across(c(3:8), log)) %>% #log transform columns 3-8
+  mutate(across(c(9:10), ~.x/100)) %>% #for columns 9 and 10 input as 0 to 100, make into between 0 and 1
+  mutate(across(c(9:10), ~asin(sqrt(.x)))) #arcsin transform percentage data
+
+#ggplot histograms of data
+ggplot(melt(df_log_asin, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+```
+
+### Hellinger transformation
+
+Another transformation that can be useful for ecological data is the Hellinger transformation. This transformation is particularly useful for compositional data, such as species abundance data, and is often used in ordination methods.
+
+```{r hellinger, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after Hellinger transformation."}
+
+#Hellinger (square root) transform with vegan library
+df_hellinger <- dataframe %>%
+  dplyr::select((where(is.numeric))) %>% #select only numeric columns
+  decostand(., #call decostand transformation function
+				 method = "hellinger", #transformation method
+				 zap = FALSE, #make near zero values into zeros to avoid exaggeration
+				 na.rm = TRUE) %>% #remove NA values
+  bind_cols(dataframe %>% dplyr::select(!where(is.numeric))) #bind non-numeric columns back to dataframe
+
+#ggplot histograms of data
+ggplot(melt(df_hellinger, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+```
+
+### Box-Cox transformation
+
+While there are lots more transformation options out there, one more I'd like to highlight is the Box-Cox transformation, used to stabilize variance and make data more closely conform to a normal distribution. It calculates a lambda value for each variable to transform the data towards normality from either left or right skewness. Since most transformations are for right-skewed data, the ability of Box-Cox to adjust data in either direction is a valuable feature.
+
+```{r boxcox, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after Box-Cox transformation."}
+
+#function to handle Box-Cox transformation with NA and zero values
+box_cox_transform <- function(x) {
+  # Remove NA values temporarily
+  non_na <- !is.na(x)
+  x_clean <- x[non_na]
+  
+  #add small constant to handle zeros (slightly larger than 0)
+  min_nonzero <- min(x_clean[x_clean > 0], na.rm = TRUE)
+  offset <- min_nonzero/2
+  x_clean <- x_clean + offset
+  
+  #find optimal lambda
+  bc <- boxcox(x_clean ~ 1, plotit = FALSE)
+  lambda <- bc$x[which.max(bc$y)]
+  
+  #transform the data
+  if (abs(lambda) < 1e-4) { # If lambda is close to 0
+    transformed <- log(x_clean)
+  } else {
+    transformed <- (x_clean^lambda - 1)/lambda
+  }
+  
+  #put NA values back
+  result <- x
+  result[non_na] <- transformed
+  
+  return(list(transformed = result, lambda = lambda, offset = offset))
+}
+
+#apply Box-Cox transformation to all numeric columns
+box_cox_results <- list()
+df_boxcox <- dataframe
+
+for(col in names(dataframe)) {
+  if(is.numeric(dataframe[[col]])) { 
+    if(all(dataframe[[col]] >= 0, na.rm = TRUE)) { #if column has only non-negative values
+      result <- box_cox_transform(dataframe[[col]])
+      df_boxcox[[col]] <- result$transformed
+      box_cox_results[[col]] <- list(
+        lambda = result$lambda,
+        offset = result$offset
+      )
+    }
+  }
+}
+
+df_boxcox #view transformed data
+
+#ggplot histograms of data
+ggplot(melt(df_boxcox, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+```
+
+## Calculate means, standard deviations, and standard errors
+
+To get a good picture of your original data and how the functions you applied impacted them, it can be useful to evaluate the means, standard deviations, and standard errors of your data. Additionally, the calculated values can be used when plotting error bars.
+
+```{r means, warning = FALSE} 
+
+#Summary stats raw data
+df_summary <- dataframe %>%
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary #view result
+
+#Summary stats standardized data
+df_summary_std <- df_std %>%
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary_std #view result
+
+#Summary stats Box-Cox transformed data
+df_summary_transformed <- df_boxcox %>% #select dataframe with desired transformation
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary_transformed #view result
+```
+
+# Plot bar charts and box plots of variables of interest
+
+Now that we have a feel for the data, it can be helpful to start by looking at basic plots to show the means and variance of key response variables across a factor of interest, such as site or treatment. Below are examples of two of the most useful plot types for this purpose: bar charts and box plots.
+
+## Bar chart with error bars
+
+```{r bar chart error bars, fig.cap="Mean and standard error of response per site in (unit)."}
+
+#Change the order of observations within the x variable with pre-defined order (from Chunk 4)
+df_summary$x_variable <- factor(df_summary$x_variable, levels = order_variable) #change ordering manually
+
+#Create a bar chart with error bars
+ggplot(df_summary, aes(x=x_variable, y=response_mean, fill=variable1)) + #define x and y variables, fill by variable
+  geom_bar(stat = "identity", position = "dodge") + #create bar chart
+  geom_errorbar(aes(ymin=response_mean-response_std.error, ymax=response_mean+response_std.error), 
+                color = "grey10", width = 0.7, position = "dodge") + #add error bars, define aesthetics
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(values=colors) + #use color palette from Chunk 3
+  scale_x_discrete(labels=lbls_variable) + #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  xlab("X Variable") + ylab("Response (unit)") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('response_bar.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Stacked bar chart
+
+```{r stacked bar, fig.cap="Proportion of variable per variable."}
+
+#Create a long dataframe with a variable to group by and variables that add up to 100%
+percent_variable_df <- dataframe %>%
+  dplyr::select(x_variable, percent_variable1, percent_variable2, percent_variable3) %>% #
+  group_by(x_variable) %>% #group by variable of interest, such as site or treatment
+  replace(is.na(.), 0) %>% #replace any NA values with 0
+  melt(, variable.name="variable", value.name="value", id = "variable1") 
+
+percent_variable$x_variable <- factor(percent_variable$x_variable, levels = order_variable) #change ordering manually
+
+#Stacked bar graph
+ggplot(percent_variable_df, aes(x=x_variable, y=value, fill=variable)) + #define x and y, fill by variable
+  geom_bar(stat = "summary", add = "mean", width = 0.7, position="stack", colour="black") + #create stacked bar chart
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(labels=c("1","2","3"), values=colors) + #use color palette from Chunk 3 and define labels
+  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  ylab("Proportion of Variable") + xlab("X Variable") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('percent_variable.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Box plot
+
+```{r box plot, warning = FALSE, fig.cap="Shannon Index values per site."}
+
+#Box plot of variable value, grouped by an x variable such as site or treatment
+ggplot(dataframe, aes(x=x_variable, y=variable, fill=factor(x_variable))) + #define x and y, fill by variable
+  geom_boxplot(aes(group=x_variable, value=variable)) + #create box plot
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(values=colors) + #use color palette from Chunk 3 and define labels
+  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  ylab("Variable") + xlab("X Variable") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('boxplot.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+# Correlations
+
