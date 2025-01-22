@@ -384,6 +384,8 @@ ggplot(melt(dataframe), aes(x=value)) + geom_histogram() + facet_wrap(~variable)
 
 ## Data transformations
 
+If your data is not normally distributed, you may need to transform it to meet the assumptions of some statistical tests. Below are examples of some common transformations you might use for ecological data. Note that it's better to test residuals when running many statistical models before deciding to use transformed data, and in some cases you may apply a different statistical method that doesn't have the same assumptions. If you do find your data doesn't match the assumptions of your analysis needs though, these can be useful transformations.
+
 ### Standardization
 
 A common need for analyses such as ordination methods (principal components analysis (PCA), nonmetric multidimensional scaling (NMDS), redundancy analysis (RDA), etc.) is for data to have the same amount of variance across variables. For this, you need to standardize your data to allow for a more accurate comparison and analysis of the relative influence of variables that are measured at different scales and in different units.
@@ -409,7 +411,7 @@ Let's start with a couple widely-used transformations. If your data is right (po
 
 ```{r log arcsin, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after log and arcsin transformations."}
 
-#log and arcsin transform, and scale
+#log and arcsin transform
 df_log_asin <- dataframe %>%
   mutate(across(c(3:8), log)) %>% #log transform columns 3-8
   mutate(across(c(9:10), ~.x/100)) %>% #for columns 9 and 10 input as 0 to 100, make into between 0 and 1
@@ -417,6 +419,10 @@ df_log_asin <- dataframe %>%
 
 #ggplot histograms of data
 ggplot(melt(df_log_asin, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+#scale transformed data
+df_la_std <- df_log_asin %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
 
 ```
 
@@ -437,6 +443,10 @@ df_hellinger <- dataframe %>%
 
 #ggplot histograms of data
 ggplot(melt(df_hellinger, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+#scale transformed data
+df_h_std <- df_hellinger %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
 
 ```
 
@@ -497,6 +507,10 @@ df_boxcox #view transformed data
 #ggplot histograms of data
 ggplot(melt(df_boxcox, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
 
+#scale transformed data
+df_bc_std <- df_boxcox %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
+
 ```
 
 ## Calculate means, standard deviations, and standard errors
@@ -524,9 +538,29 @@ df_summary_transformed <- df_boxcox %>% #select dataframe with desired transform
 df_summary_transformed #view result
 ```
 
-# Plot bar charts and box plots of variables of interest
+# Box plots and bar charts of variables of interest
 
-Now that we have a feel for the data, it can be helpful to start by looking at basic plots to show the means and variance of key response variables across a factor of interest, such as site or treatment. Below are examples of two of the most useful plot types for this purpose: bar charts and box plots.
+Now that we have a feel for the data, it can be helpful to start by looking at basic plots to show the means and variance of key response variables across a factor of interest, such as site or treatment. Below are examples of two of the most useful plot types for this purpose: box plots and bar charts.
+
+## Box plot
+
+Box plots are particularly useful for visualizing the distribution of a response variable across different levels of a factor. They show the median, quartiles, and outliers of the data, making it easy to compare the spread of the data between different groups. Additionally, box plots can help identify potential outliers to investigate further.
+
+```{r box plot, warning = FALSE, fig.cap="Shannon Index values per site."}
+
+#Box plot of a response variable value, grouped by an x variable such as site or treatment
+ggplot(dataframe, aes(x=x_variable, y=response, fill=factor(x_variable))) + #define x and y, fill by variable
+  geom_boxplot(aes(group=x_variable, value=response)) + #create box plot
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(values=colors) + #use color palette from Chunk 3 and define labels
+  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  xlab("X Variable") + ylab("Response (unit)") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('response_boxplot.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
 
 ## Bar chart with error bars
 
@@ -582,42 +616,200 @@ ggsave('percent_variable.svg', path = "Figures", width = 6, height = 4, units = 
 
 ```
 
-## Box plot
+# Multivariate analysis
 
-Box plots are particularly useful for visualizing the distribution of a response variable across different levels of a factor. They show the median, quartiles, and outliers of the data, making it easy to compare the spread of the data between different groups. Additionally, box plots can help identify potential outliers to investigate further.
+If you have multiple response variables or are interested in the relationships between variables, it can be difficult to know where to start. Below are a few common analyses that can help you get a better understanding of relationships within your data.
 
-```{r box plot, warning = FALSE, fig.cap="Shannon Index values per site."}
+## Correlations
 
-#Box plot of a response variable value, grouped by an x variable such as site or treatment
-ggplot(dataframe, aes(x=x_variable, y=response, fill=factor(x_variable))) + #define x and y, fill by variable
-  geom_boxplot(aes(group=x_variable, value=response)) + #create box plot
-  my_theme + #custom theme from Chunk 3
-  scale_fill_manual(values=colors) + #use color palette from Chunk 3 and define labels
-  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
-  ggtitle("Title of Plot") + #add plot title
-  xlab("X Variable") + ylab("Response (unit)") #add axis titles
+Correlations between variables can be a nice place to start. This can help you identify relationships between variables and determine which variables are good candidates for further analysis.
 
-#Save figure - name, type, folder, dimensions, resolution, background specs
-ggsave('response_boxplot.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+```{r corr, fig.align = "center", out.width='100%', fig.cap="Pearson's Correlation matrix of many variables."}
+
+df_corr <- round(cor(dataframe, use = "pairwise.complete.obs"), 3) #create df for corr. matrix, will use only complete pairs (ignore other NAs), w/3 decimals
+df_corr #view correlations
+
+#test significance P values with 95% confidence interval
+cortest <- cor.mtest(dataframe, conf.level = 0.95)
+cortest #view P values
+
+#plot matrix with corrplot
+corrplot(df_corr, method = 'color', type = 'upper', #plot upper half, show as colors
+         col = colors_ramp, #set gradient colors from defined palette in Chunk 3
+         mar=c(1,0,1,0), #set margins for all incl. title - BLTR
+         tl.col = 'black',tl.cex = 0.4, #text label color, size
+         tl.srt = 90, tl.offset = 0.4, #text label angle rotation, offset
+         #order = 'FPC',  #first principal component order
+         p.mat = cortest$p, #define p values
+         insig = 'label_sig', #add *s for significance levels
+         sig.level = c(0.001, 0.01, 0.05), #define significance levels
+         pch.cex = 0.3, #star sizes
+         cl.cex = 0.5, #color legend text size
+         cex.main = 1, #set title font size
+         title = "Correlation Matrix" #set title
+         )
 
 ```
 
-# Analyze differences between groups
+## Unconstrained ordination
 
-## Linear Regression
+Unconstrained ordination methods are useful for visualizing the relationships between variables in a dataset. They can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
 
-### Linear Mixed Models
+### Principal Components Analysis (PCA)
+
+Principal Components Analysis (PCA) is a common method for reducing the dimensionality of a dataset and visualizing the relationships between variables. It can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
+
+```{r pca, fig.align = "center", out.width='100%', fig.cap="PCA biplot of variables."}
+
+#select only columns with a value in every row, i.e. no NA values
+df_comp_std <- df_std[ , colSums(is.na(df_std)) == 0]
+df_comp_std #view selected data
+
+#PCA with base R
+pca <- prcomp(df_comp_std) #perform PCA on standardized variables - depending on the data, you may want to use the transformed and standardized data instead of just standardized data
+
+summary(pca) #view importance of principal components and proportion of variances
+pca$rotation #view loadings from the standardized data
+screeplot(pca) #diagnostic plot to make sure principal components are in order
+
+#Create biplot of PCA results
+autoplot(pca, data = df_comp_std, #plot pca from pca model and data
+				 colour = 'Site', #choose variable to separate by, such as site or species
+         loadings = TRUE, loadings.colour = '#C8AF67', #show loadings, define color
+         loadings.label = TRUE, loadings.label.size = 3, 
+				 loadings.label.colour = 'black',
+				 #label = TRUE, label.size = 3, #show labels for datapoints
+) + my_theme + #custom theme from Chunk 3
+  ggtitle("PCA Biplot") #add plot title
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('data_pca.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+### Nonmetric Multidimensional Scaling (NMDS)
+
+Nonmetric Multidimensional Scaling (NMDS) is another method for visualizing the relationships between variables in a dataset. It is particularly useful for ecological data, where the relationships between variables may not be linear and data may not meet the assumptions of a PCA. NMDS can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset. However, it's important to note that NMDS may not be as interpreted in the same way as PCA.
+
+```{r, fig.cap="Nonmetric multidimensional scaling (NMDS) plot, using the Bray-Curtis dissimilarity coefficient."}
+
+#create distance matrix with Bray-Curtis dissimilarity using the vegan package
+df_dist <- vegdist(dataframe, method = "bray", na.rm = TRUE) #change method to other dissimilarity measures as needed
+df_dist <- as.matrix(df_dist, labels = TRUE) #convert to matrix
+df_dist #view distance matrix
+
+#check for complete rows - if not enough, might consider removing columns with too many NAs
+df_completerows <- df_std[complete.cases(df_std), ] #check how many complete rows left for envfit
+df_completerows #view complete rows
+
+#NMDS with vegan package
+#test how many axes are appropriate
+stress <- vector(length = 6)
+for (i in 1:6) {
+    stress[i] <- metaMDS(df_nmds, distance = "bray", k = i,
+                         model = "global", #calc stress on ranks of data
+                         maxit = 400, #max iterations of configuration adjustments
+                         try = 20, trymax = 20, #min and max runs
+                         autotransform = FALSE, #don't transform data
+                         weakties = TRUE, #set fitted distances as un-fixed
+                         scaling = TRUE, #re-scale ordination axes
+                         na.rm = TRUE)$stress
+}
+names(stress) <- paste0(1:6, "Dim")
+par(mar = c(3.5,3.5,1,1), mgp = c(2, 0.6, 0), cex = 0.8, las = 2)
+barplot(stress, ylab = "stress")
+
+#run NMDS with 3 axes - change number of axes as needed
+set.seed(42) #set seed for reproducibility
+nmds <- metaMDS(df_std, distance = "bray", #data & distance measure
+                k = 3, #number of axes
+                model = "global", #calc stress on ranks of data
+                maxit = 400, #max iterations of configuration adjustments
+                try = 20, trymax = 200, #min and max runs
+                autotransform = FALSE, #don't transform data
+                weakties = TRUE, #set fitted distances as un-fixed
+                pc = TRUE, #rotate axes using PCA to orient first 2 axes as containing most of the variability
+                scaling = TRUE, #re-scale ordination axes to ‘unit root mean squares’
+                na.rm = TRUE) #remove NA values
+
+nmds #check "stress" value to see how well the data is represented by the ordination
+goodness(nmds) #check goodness of fit for each point
+stressplot(nmds, main = "Shepard plot") #diagnostic plot
+
+
+#make fit vectors and view
+nmdsfit <- envfit(nmds, df_nmds, permutations = 999, na.rm=TRUE)
+nmdsfit #check fit vectors
+
+#make df of scores
+nmds_scores <- as.data.frame(scores(nmds))
+nmds_scores$Site = df_std$Site #add site back
+
+#make df of vectors, only significant vectors
+nmds_vectors <- as.data.frame(scores(nmdsfit, display = "vectors")) #extracts relevant scores from envifit
+nmds_vectors <- cbind(nmds_vectors, variable = rownames(nmds_vectors)) #and then gives them their names
+nmds_vectors <- cbind(nmds_vectors, pval = nmdsfit$vectors$pvals) # add pvalues to dataframe
+sig_vectors <- subset(nmds_vectors, pval<=0.054) #subset data to show variables significant at rounded 0.05
+
+#plot with base R
+{ordiplot(nmds, type = "n")
+orditorp(nmds, display = "sites", labels = F, pch = c(16))
+plot(nmdsfit, p.max = 0.054, col = "black", cex = 0.7)} # change the significance level of species shown with p.max
+
+#plot scores with ggplot
+ggplot(nmds_scores) + 
+  geom_point(size = 2, aes(x = NMDS1, y = NMDS2, color = variable1)) + #add points and color by variable
+  geom_segment(data = sig_vectors,  #add vector arrows of significant variables
+              aes(x = 0, xend = NMDS1 * 400, #add scaling factor
+                  y = 0, yend = NMDS2 * 400), 
+              arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+              color = "grey10", 
+              lwd = 0.3) +
+  geom_text_repel(data = sig_vectors, #add labels for variables that don't overlap
+                  aes(x = NMDS1 * 400, #add scaling factor
+                      y = NMDS2 * 400, 
+                      label = variable), 
+                  size = 3,
+                  max.overlaps = Inf) +
+  labs(x = "NMDS1", y = "NMDS2", color = "variable1") +
+  coord_fixed() + #ensures axes are on the same scale
+  my_theme #custom theme from Chunk 3
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('NMDS_date.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+  
+```
+
+# Analyze specific relationships
+
+Now that you have a better understanding of the relationships between variables in your dataset, you can start to analyze specific relationships in more detail. Below are examples of common analyses you might use to test specific hypotheses or explore relationships between variables.
+
+## Linear Regression, Linear Mixed Models, Generalized Linear Models
+
+Linear regression is a common method for analyzing the relationship between a continuous response variable and one or more predictor variables. It can help you determine the strength and direction of the relationship between variables and make predictions based on the model. Additionally, group-wise comparisons such as analysis of variance (ANOVA), discussed further below, depend on linear regression.
 
 Linear mixed models (LMMs) are a powerful tool for analyzing data with a hierarchical structure, such as repeated measures or nested data. They allow you to account for the correlation between observations within the same group and to model the random effects of the grouping variable.
 
+Generalized linear models (GLMs) are an extension of linear regression that can be used for non-normal response variables, such as binary, count, or proportional data. They allow you to model the relationship between a response variable and one or more predictor variables using a variety of link functions.
+
 ```{r lmm, warning = FALSE}
 
-#Linear mixed model
+#Linear regression with base R
+lm_model <- lm(response ~ predictor1 + predictor2, data = dataframe) #model with 2 predictor variables
+
+#Linear mixed model with lme4 library, setting a random variable such as site or block
 lm_model <- lmer(response ~ predictor1 * predictor2 + (1|randomvariable), #model with 2 interacting predictor variables and 1 random variable
     REML = TRUE, #restricted maximum likelihood (REML) for model comparison 
     data = dataframe, #choose dataframe
     na.action = na.omit) #omit observations with NA values
 
+#Generalized linear model with lme4 library, setting a link function such as binomial or poisson
+glm_model <- glmer(response ~ predictor1 + predictor2 + (1|randomvariable), #model with 2 predictor variables and 1 random variable
+    family = binomial(link = "logit"), #binomial link function
+    data = dataframe, #choose dataframe
+    na.action = na.omit) #omit observations with NA values
 
 ```
 
@@ -680,7 +872,7 @@ If you find a significant difference between groups, you can follow up with post
 
 Common post-hoc tests include Tukey's HSD, Bonferroni, and Dunnett's tests. Tukey's HSD is a popular post-hoc test that compares all possible pairs of means and adjusts for multiple comparisons. Bonferroni is a more conservative test that adjusts the significance level based on the number of comparisons. Dunnett's test is used to compare all treatment groups to a control group.
 
-Non-parametric post-hoc alternatives include the Dunn test, the Conover test, or the Nemenyi test. 
+A non-parametric post-hoc alternative is the Dunn test, which is used in place of Tukey's HSD when the assumption of homogeneity of variance is violated.
 
 ```{r posthoc, warning = FALSE}
 
@@ -696,41 +888,8 @@ pairwise.t.test(dataframe$response, dataframe$predictor, p.adj = "bonferroni") #
 #Dunnett's post-hoc test with base R
 dunnettTest(aov_model, "control") #Dunnett's post-hoc test to compare to control group
 
-
-```
-
-# Multivariate analysis
-
-If you have multiple response variables or are interested in the relationships between variables, you'll need to explore multivariate analyses. Below are examples of how you can explore correlations between variables and fit linear mixed models to account for the hierarchical structure of your data.
-
-## Correlations
-
-Particularly when working with a multivariate dataset, it can be helpful to look at the correlations between variables. This can help you identify relationships between variables and determine which variables are good candidates for further analysis.
-
-```{r corr, fig.align = "center", out.width='100%', fig.cap="Pearson's Correlation matrix of many variables."}
-
-df_corr <- round(cor(dataframe, use = "pairwise.complete.obs"), 3) #create df for corr. matrix, will use only complete pairs (ignore other NAs), w/3 decimals
-df_corr #view correlations
-
-#test significance P values with 95% confidence interval
-cortest <- cor.mtest(dataframe, conf.level = 0.95)
-cortest #view P values
-
-#plot matrix with corrplot
-corrplot(df_corr, method = 'color', type = 'upper', #plot upper half, show as colors
-         col = colors_ramp, #set gradient colors from defined palette in Chunk 3
-         mar=c(1,0,1,0), #set margins for all incl. title - BLTR
-         tl.col = 'black',tl.cex = 0.4, #text label color, size
-         tl.srt = 90, tl.offset = 0.4, #text label angle rotation, offset
-         #order = 'FPC',  #first principal component order
-         p.mat = cortest$p, #define p values
-         insig = 'label_sig', #add *s for significance levels
-         sig.level = c(0.001, 0.01, 0.05), #define significance levels
-         pch.cex = 0.3, #star sizes
-         cl.cex = 0.5, #color legend text size
-         cex.main = 1, #set title font size
-         title = "Correlation Matrix" #set title
-         )
+#Dunn test with dunn.test library
+dunn.test(dataframe$response, dataframe$predictor, method = "bonferroni") #Dunn test with Bonferroni correction
 
 ```
 
