@@ -90,6 +90,12 @@ colors2 <- c("khaki", "darkolivegreen", "darkred", "bisque")
 #color palette with gradient with 20 steps
 colors_ramp <- colorRampPalette(c("darkgreen", "azure","goldenrod"))(20)
 
+#Color variables
+
+#define individual colors for plot elements
+plotline_color <- "darkgreen" #define color for plot lines
+fill_color <- "#ADF097" #define color for fill
+
 #Custom ggplot configurations 
 
 #Create a custom theme for ggplot with font, legend, and background settings. Transparent allows transparent png or pdf export.
@@ -800,7 +806,7 @@ Generalized linear models (GLMs) are an extension of linear regression that can 
 lm_model <- lm(response ~ predictor1 + predictor2, data = dataframe) #model with 2 predictor variables
 
 #Linear mixed model with lme4 library, setting a random variable such as site or block
-lm_model <- lmer(response ~ predictor1 * predictor2 + (1|randomvariable), #model with 2 interacting predictor variables and 1 random variable
+lme_model <- lmer(response ~ predictor1 * predictor2 + (1|randomvariable), #model with 2 interacting predictor variables and 1 random variable
     REML = TRUE, #restricted maximum likelihood (REML) for model comparison 
     data = dataframe, #choose dataframe
     na.action = na.omit) #omit observations with NA values
@@ -810,6 +816,23 @@ glm_model <- glmer(response ~ predictor1 + predictor2 + (1|randomvariable), #mod
     family = binomial(link = "logit"), #binomial link function
     data = dataframe, #choose dataframe
     na.action = na.omit) #omit observations with NA values
+
+```
+
+## Model checks and fit for regression models
+
+After fitting a regression model, it's important to check the assumptions of the model and assess the fit of the model to the data. Below are some common checks you might perform to evaluate the fit of your model. These include checking the normality of residuals, multicollinearity, and model assumptions. You can also use the performance library to check the assumptions of your model and assess the fit of the model to the data.
+
+```{r model checks, warning = FALSE}
+
+#Check assumptions of linear regression model (regular, mixed model or generalized model) with performance library and MuMIn library
+summary(lm_model) #view summary of linear regression model
+shapiro.test(resid(lm_model)) #check normality of residuals
+check_collinearity(lm_model) #calculate variance inflation factors (VIF) to check for multicollinearity
+performance::check_model(lm_model) #plot model checks
+performance::r2(lm_model, multivariate=TRUE) #calculate R-squared for model fit
+AIC(lm_model) #calculate AIC for model comparison
+MuMIn::AICc(lm_model, k=2) #calculate AICc for for model comparison with small sample sizes
 
 ```
 
@@ -893,3 +916,16 @@ dunn.test(dataframe$response, dataframe$predictor, method = "bonferroni") #Dunn 
 
 ```
 
+## Plot linear regression
+
+```{r lm plot, warning = FALSE, fig.height = 5, fig.width = 3.5, fig.cap="Linear model of response variable by predictor variable."}
+
+#Plot linear regression with ggplot
+ggplot(data = dataframe, aes(x=predictor, y=respose)) + #define x and y variables
+  geom_point(color="grey10") + #add data points
+  geom_smooth(method="lm", se=TRUE, color=plotline_color, fill=fill_color) + #add linear regression line with confidence interval fill
+  xlab("Predictor") + ylab(expression(paste("Response (unit)"))) +
+  scale_y_continuous(breaks = pretty(c(0,50), n = 5)) + #change limits and number of tick marks on y axis
+  my_theme
+
+```
