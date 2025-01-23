@@ -708,6 +708,8 @@ df_dist #view distance matrix
 df_completerows <- df_std[complete.cases(df_std), ] #check how many complete rows left for envfit
 df_completerows #view complete rows
 
+df_nmds <- df_std[,-c(1:2,5)] #remove categorical variables and variables with too many NAs - change column numbers as needed
+
 #NMDS with vegan package
 #test how many axes are appropriate
 stress <- vector(length = 6)
@@ -727,7 +729,7 @@ barplot(stress, ylab = "stress")
 
 #run NMDS with 3 axes - change number of axes as needed
 set.seed(42) #set seed for reproducibility
-nmds <- metaMDS(df_std, distance = "bray", #data & distance measure
+nmds <- metaMDS(df_nmds, distance = "bray", #data & distance measure
                 k = 3, #number of axes
                 model = "global", #calc stress on ranks of data
                 maxit = 400, #max iterations of configuration adjustments
@@ -742,14 +744,18 @@ nmds #check "stress" value to see how well the data is represented by the ordina
 goodness(nmds) #check goodness of fit for each point
 stressplot(nmds, main = "Shepard plot") #diagnostic plot
 
-
 #make fit vectors and view
 nmdsfit <- envfit(nmds, df_nmds, permutations = 999, na.rm=TRUE)
 nmdsfit #check fit vectors
 
+#plot with base R
+{ordiplot(nmds, type = "n")
+orditorp(nmds, display = "sites", labels = F, pch = c(16))
+plot(nmdsfit, p.max = 0.054, col = "black", cex = 0.7)} # change the significance level of species shown with p.max
+
 #make df of scores
 nmds_scores <- as.data.frame(scores(nmds))
-nmds_scores$Site = df_std$Site #add site back
+nmds_scores$cat_variable = df_std$cat_variable #add back categorical variable for coloring
 
 #make df of vectors, only significant vectors
 nmds_vectors <- as.data.frame(scores(nmdsfit, display = "vectors")) #extracts relevant scores from envifit
@@ -757,14 +763,9 @@ nmds_vectors <- cbind(nmds_vectors, variable = rownames(nmds_vectors)) #and then
 nmds_vectors <- cbind(nmds_vectors, pval = nmdsfit$vectors$pvals) # add pvalues to dataframe
 sig_vectors <- subset(nmds_vectors, pval<=0.054) #subset data to show variables significant at rounded 0.05
 
-#plot with base R
-{ordiplot(nmds, type = "n")
-orditorp(nmds, display = "sites", labels = F, pch = c(16))
-plot(nmdsfit, p.max = 0.054, col = "black", cex = 0.7)} # change the significance level of species shown with p.max
-
 #plot scores with ggplot
 ggplot(nmds_scores) + 
-  geom_point(size = 2, aes(x = NMDS1, y = NMDS2, color = variable1)) + #add points and color by variable
+  geom_point(size = 2, aes(x = NMDS1, y = NMDS2, color = cat_variable)) + #add points and color by variable
   geom_segment(data = sig_vectors,  #add vector arrows of significant variables
               aes(x = 0, xend = NMDS1 * 400, #add scaling factor
                   y = 0, yend = NMDS2 * 400), 
@@ -957,14 +958,14 @@ respvar <- df_bc_std[,c("response1", "response2")] #select response variables
 predvar <- df_bc_std[,-c("response1", "response2", "response3")] #select all but response variables
 pred_comp <- predvar[ , colSums(is.na(predvar)) == 0] #select only columns with a value in every row, i.e. no NA values
 
-#RDA full dataset with responses and predictors
+#RDA full dataset with responses and predictors with vegan library
 rda <- rda(respvar ~., #define response matrix
              data=pred_comp, #define predictor matrix
              scale=FALSE, #don't scale variables - transformed ahead of time
              na.action = na.omit) #omit NA values
 summary(rda) #view summary of RDA
 
-#forward selection of variables
+#forward selection of variables with vegan library
 fwd_sel <- ordiR2step(
   rda(respvar ~ 1, data = pred_comp, ##lower model limit 1
       na.action = na.omit), #na action
@@ -1039,8 +1040,10 @@ Variation partitioning is a useful technique for quantifying the relative import
 
 ```{r varpart, warning = FALSE}
 
-#Variation partitioning with vegan library
-vpa <- varpart(sel_rda, data = pred_comp) #perform variation partitioning
+#Variation partitioning with vegan library - use variables from RDA
+vpa <- varpart(respvar, ~ predictor1, ~ predictor2, ~ predictor3, ~ predictor4, data=pred_comp)
+vpa #view variation partitioning results
+vpa$part #view partitioning results
 
 #plot variation partitioning results
 plot(vpa, Xnames = c("predictor1", "predictor2", "predictor3", "predictor4"), #set names
