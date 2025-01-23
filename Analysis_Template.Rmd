@@ -622,7 +622,7 @@ ggsave('percent_variable.svg', path = "Figures", width = 6, height = 4, units = 
 
 ```
 
-# Multivariate analysis
+# Multivariate exploratory analysis
 
 If you have multiple response variables or are interested in the relationships between variables, it can be difficult to know where to start. Below are a few common analyses that can help you get a better understanding of relationships within your data.
 
@@ -661,7 +661,7 @@ corrplot(df_corr, method = 'color', type = 'upper', #plot upper half, show as co
 
 Unconstrained ordination methods are useful for visualizing the relationships between variables in a dataset. They can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
 
-### Principal Components Analysis (PCA)
+### PCA (Principal Components Analysis)
 
 Principal Components Analysis (PCA) is a common method for reducing the dimensionality of a dataset and visualizing the relationships between variables. It can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
 
@@ -693,11 +693,11 @@ ggsave('data_pca.svg', path = "Figures", width = 6, height = 4, units = "in", dp
 
 ```
 
-### Nonmetric Multidimensional Scaling (NMDS)
+### NMDS (Nonmetric Multidimensional Scaling)
 
 Nonmetric Multidimensional Scaling (NMDS) is another method for visualizing the relationships between variables in a dataset. It is particularly useful for ecological data, where the relationships between variables may not be linear and data may not meet the assumptions of a PCA. NMDS can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset. However, it's important to note that NMDS may not be as interpreted in the same way as PCA.
 
-```{r, fig.cap="Nonmetric multidimensional scaling (NMDS) plot, using the Bray-Curtis dissimilarity coefficient."}
+```{r nmds, fig.cap="Nonmetric multidimensional scaling (NMDS) plot, using the Bray-Curtis dissimilarity coefficient."}
 
 #create distance matrix with Bray-Curtis dissimilarity using the vegan package
 df_dist <- vegdist(dataframe, method = "bray", na.rm = TRUE) #change method to other dissimilarity measures as needed
@@ -800,7 +800,7 @@ Linear mixed models (LMMs) are a powerful tool for analyzing data with a hierarc
 
 Generalized linear models (GLMs) are an extension of linear regression that can be used for non-normal response variables, such as binary, count, or proportional data. They allow you to model the relationship between a response variable and one or more predictor variables using a variety of link functions.
 
-```{r lmm, warning = FALSE}
+```{r lm, warning = FALSE}
 
 #Linear regression with base R
 lm_model <- lm(response ~ predictor1 + predictor2, data = dataframe) #model with 2 predictor variables
@@ -825,8 +825,18 @@ After fitting a regression model, it's important to check the assumptions of the
 
 ```{r model checks, warning = FALSE}
 
-#Check assumptions of linear regression model (regular, mixed model or generalized model) with performance library and MuMIn library
+#Summary including residual quantiles, variance explained by random effects (in mixed model), fixed effects, and correlation of fixed effects
 summary(lm_model) #view summary of linear regression model
+
+#Plot residuals with base R
+qqnorm(resid(lm_model), main = "Normal Q-Q Plot", 
+			 xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
+			 plot.it = TRUE, col = "darkgrey")
+qqline(resid(lm_model), distribution = qnorm,
+       probs = c(0.25, 0.75), 
+			 col = "dodgerblue", lwd = 2) #create line for normal distribution
+
+#Check assumptions and fit of linear regression model (regular, mixed model or generalized model) with performance library and MuMIn library
 shapiro.test(resid(lm_model)) #check normality of residuals
 check_collinearity(lm_model) #calculate variance inflation factors (VIF) to check for multicollinearity
 performance::check_model(lm_model) #plot model checks
@@ -858,7 +868,7 @@ In this case, we can use Welch's ANOVA or the Kruskal-Wallis rank sum test, the 
 
 As an alternative to multi-way ANOVA, we can use the ARTool library to perform an Aligned Rank Transform (ART) ANOVA, which is a non-parametric method that can be used with unbalanced data and is robust to outliers. 
 
-```{r}
+```{r anova, warning = FALSE}
 
 #Bartlett's test with base R
 bartlett.test(response ~ predictor, data=dataframe) #test for homogeneity of variance
@@ -927,5 +937,116 @@ ggplot(data = dataframe, aes(x=predictor, y=response)) + #define x and y variabl
   xlab("Predictor") + ylab(expression(paste("Response (unit)"))) +
   scale_y_continuous(breaks = pretty(c(0,50), n = 5)) + #change limits and number of tick marks on y axis
   my_theme
+
+```
+
+# Constrained ordination for hypothesis testing
+
+If you have specific hypotheses you want to test or want to determine the relationship between response variables and predictor variables, you can use constrained ordination methods. These methods allow you to test the significance of predictor variables and determine the strength and direction of the relationship between variables.
+
+## RDA (Redundancy Analysis)
+
+Redundancy Analysis (RDA) is a constrained ordination method that allows you to test the significance of predictor variables and determine the strength and direction of the relationship between variables. It is particularly useful for analyzing the relationship between response variables and predictor variables and can help you identify the variables that are most important for explaining the variation in your dataset.
+
+```{r rda, fig.align = "center", out.width='100%', fig.cap="Redundancy Analysis (RDA) plot of variables."}
+
+#put response variables into dataframe from standardization and best transformation
+respvar <- df_bc_std[,c("response1", "response2")] #select response variables
+
+#put predictor variables into dataframe from standardization and best transformation
+predvar <- df_bc_std[,-c("response1", "response2", "response3")] #select all but response variables
+pred_comp <- predvar[ , colSums(is.na(predvar)) == 0] #select only columns with a value in every row, i.e. no NA values
+
+#RDA full dataset with responses and predictors
+rda <- rda(respvar ~., #define response matrix
+             data=pred_comp, #define predictor matrix
+             scale=FALSE, #don't scale variables - transformed ahead of time
+             na.action = na.omit) #omit NA values
+summary(rda) #view summary of RDA
+
+#forward selection of variables
+fwd_sel <- ordiR2step(
+  rda(respvar ~ 1, data = pred_comp, ##lower model limit 1
+      na.action = na.omit), #na action
+  scope = formula(rda), #upper model limit (the "full" model)
+  direction = "forward",
+  R2scope = TRUE, #can't surpass the "full" model's R2
+  pstep = 1000,
+  trace = TRUE)
+
+fwd_sel$call #call reduced formula
+
+#RDA with selected variables from reduced formula
+sel_rda <- rda(formula = respvar ~ predictor1 + predictor2 + predictor3 + predictor4, 
+               data = pred_comp, na.action = na.omit)
+anova.cca(sel_rda, by = "term") #test variables
+anova.cca(sel_rda, by = "axis") #test RDA axis significance
+RsquareAdj(sel_rda) #test R-squared for model fit
+
+#base R ordination plot
+ordiplot(sel_rda, scaling = 2, type = "t") #scaling 2 reflects correlations
+
+#plot scores with ggplot
+
+#make dfs of values from RDA
+rda_sum <- summary(sel_rda)
+rda_groupvar  <- as.data.frame(rda_sum$sites[,1:2]) 
+rda_sites$Site = df_std$Site #add site back
+rda_response  <- as.data.frame(rda_sum$species[,1:2])
+rda_predictors  <- as.data.frame(rda_sum$biplot[,1:2])
+rda_vectors <- rbind(rda_response, rda_predictors)
+
+ggplot(rda_sites) + 
+  geom_point(size = 1, aes(x=RDA1, y=RDA2, colour = Site)) + #add points and color by site
+  geom_segment(data=rda_response, #add vector arrows of significant variables
+               aes(x=0, xend=RDA1, 
+                   y=0, yend=RDA2), 
+               arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+                colour = "grey10", 
+                lwd = 0.3) + #line width
+  geom_text_repel(data=rda_response, 
+            aes(x=RDA1, y=RDA2,
+                label=rownames(rda_response),
+                hjust=0.5*(1-sign(RDA1)),vjust=0.5*(1-sign(RDA2))), 
+                colour = "grey10", size=3) +
+  geom_segment(data=rda_predictors, #add vector arrows of significant variables
+               aes(x=0, xend=RDA1, 
+                   y=0, yend=RDA2), 
+               arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+                colour = "red", 
+                lwd = 0.3) + #line width
+  geom_text(data=rda_predictors, 
+            aes(x=RDA1, y=RDA2,
+                label=rownames(rda_predictors),
+                hjust=0.5*(1-sign(RDA1)),vjust=0.5*(1-sign(RDA2))), 
+                colour = "red", size=3) +
+  labs(x = "RDA1", colour = "Site", y = "RDA2") +
+  coord_fixed() + #ensures axes are on the same scale
+  my_theme #custom theme from Chunk 3
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('RDA.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Variation partitioning
+
+Variation partitioning is a useful technique for quantifying the relative importance of different predictor variables in explaining the variation in a response variable. It allows you to determine the unique and shared contributions of each predictor variable to the variation in the response variable(s). Using the reduced RDA formula from above, we can perform variation partitioning to quantify the relative importance of each identified predictor variable in explaining the variation in the response variable.
+
+```{r varpart, warning = FALSE}
+
+#Variation partitioning with vegan library
+vpa <- varpart(sel_rda, data = pred_comp) #perform variation partitioning
+
+#plot variation partitioning results
+plot(vpa, Xnames = c("predictor1", "predictor2", "predictor3", "predictor4"), #set names
+     digits=1, bg = colors, alpha=100, id.size=1.1) #set significant digits, colors and labels
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+Cairo(file="Figures/vpa.svg", type="svg", width = 6, height = 4, units = "in", pointsize=12, bg = "transparent", dpi = 300)
 
 ```
