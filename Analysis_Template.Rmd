@@ -53,13 +53,13 @@ Load libraries that are commonly used for data analysis and visualization in our
 #Create groups of packages/libraries 
 
 ##1. For data reading and manipulation - could just do tidyverse and a few others, or make group of specific libraries for faster loading
-datalib <- c("dplyr", "tidyr", "readr", "read_excel", "stringr", "tibble", "reshape2", "janitor") 
+datalib <- c("dplyr", "tidyr", "readr", "readxl", "stringr", "tibble", "reshape2", "janitor") 
 
 ##2. For data visualization (note ggplot2 is in tidyverse)
 vislib <- c("ggplot2", "ggthemes", "ggfortify", "ggrepel", "plotrix", "RColorBrewer", "Cairo")
 
 ##3. For calculation and stats functions, including ecology-specific libraries
-statlib <- c("car", "MASS", "rcompanion", "zoo", "lme4", "MuMIn", "emmeans", "ARTool", "performance", "see", "corrplot", "BAT", "vegan")
+statlib <- c("car", "MASS", "rcompanion", "zoo", "lme4", "MuMIn", "emmeans", "ARTool", "dunn.test", "performance", "see", "corrplot", "BAT", "vegan")
 
 #Install packages as needed - commented out, but remove # and adjust as needed
 ##as a group:
@@ -681,7 +681,7 @@ screeplot(pca) #diagnostic plot to make sure principal components are in order
 #Create biplot of PCA results
 autoplot(pca, data = df_comp_std, #plot pca from pca model and data
 				 colour = 'Site', #choose variable to separate by, such as site or species
-         loadings = TRUE, loadings.colour = '#C8AF67', #show loadings, define color
+         loadings = TRUE, loadings.colour = 'grey10', #show loadings, define color
          loadings.label = TRUE, loadings.label.size = 3, 
 				 loadings.label.colour = 'black',
 				 #label = TRUE, label.size = 3, #show labels for datapoints
@@ -991,8 +991,8 @@ ordiplot(sel_rda, scaling = 2, type = "t") #scaling 2 reflects correlations
 
 #make dfs of values from RDA
 rda_sum <- summary(sel_rda)
-rda_groupvar  <- as.data.frame(rda_sum$sites[,1:2]) 
-rda_sites$Site = df_std$Site #add site back
+rda_sites  <- as.data.frame(rda_sum$sites[,1:2]) 
+rda_sites$Site = df_std$Site #add site for grouping
 rda_response  <- as.data.frame(rda_sum$species[,1:2])
 rda_predictors  <- as.data.frame(rda_sum$biplot[,1:2])
 rda_vectors <- rbind(rda_response, rda_predictors)
