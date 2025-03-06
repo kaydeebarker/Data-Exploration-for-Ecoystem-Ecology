@@ -1,0 +1,1055 @@
+---
+title: "Analysis Template with Example Data"
+author: "Kaydee Barker"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document: default #set as default knit option
+    toc: yes
+    
+  word_document:
+    toc: yes
+	   
+	html_document:
+    toc: yes #table of contents
+    number_sections: true #number the table of contents items
+    toc_float: yes #floats at top corner as user scrolls
+    code_folding: hide #hide until user clicks to show (or could do opposite, or none)
+  
+---
+
+
+
+# Set up
+
+## Global settings
+
+Start with a clean slate and set default settings for code chunks. Some options include:
+
+> eval = TRUE #run code in chunk (FALSE will not run)
+echo = TRUE #display code in knit output (FALSE will hide)
+include = TRUE #include chunk in knit output (FALSE will not include)
+message = TRUE #display code messages in knit output (FALSE will hide)
+warning = TRUE #display code warnings (FALSE will hide)
+error = FALSE #stop rendor when error occurs (TRUE will continue and display error messages in knit output)
+
+```{r setup, include=FALSE}
+
+rm(list=ls()) #clear global environment/workspace
+knitr::opts_chunk$set(echo = TRUE) #default display code in knit output (FALSE will hide)
+
+getwd #see what your current working directory is
+
+#If you need to change your working directory, adjust the following line
+#setwd("C:/...folder") #set working directory
+
+```
+
+## Load libraries (and install if needed)
+
+Load libraries that are commonly used for data analysis and visualization in our field.
+
+```{r libraries, warning=FALSE, include=FALSE}
+
+#Create groups of packages/libraries 
+
+##1. For data reading and manipulation - could just do tidyverse and a few others, or make group of specific libraries for faster loading
+datalib <- c("dplyr", "tidyr", "readr", "readxl", "stringr", "tibble", "reshape2", "janitor") 
+
+##2. For data visualization (note ggplot2 is in tidyverse)
+vislib <- c("ggplot2", "ggthemes", "ggfortify", "ggrepel", "plotrix", "RColorBrewer", "Cairo")
+
+##3. For calculation and stats functions, including ecology-specific libraries
+statlib <- c("car", "MASS", "rcompanion", "zoo", "lme4", "MuMIn", "emmeans", "ARTool", "dunn.test", "performance", "see", "corrplot", "BAT", "vegan")
+
+#Install packages as needed - commented out, but remove # and adjust as needed
+##as a group:
+#lapply(c(datalib, vislib, statlib), install.packages, character.only = TRUE)
+
+##or individually:
+#install.packages("janitor") #install janitor to help clean up data
+
+#Load libraries
+lapply(c(datalib, vislib, statlib), library, character.only = TRUE)
+
+```
+
+## Define custom design settings for plots
+
+To streamline a cohesive look for your plots, you can define custom color palettes and plot settings. Here I've provided examples of how you can define color palettes, and create a custom ggplot theme. You can adjust these to suit your project's needs.
+
+```{r design, echo=FALSE}
+
+#Color palettes
+
+#color palette example using hex codes
+colors <- c("#3DD978", "#995551", "#D9443D", "#518464")
+
+#color palette example with named colors
+colors2 <- c("khaki", "darkolivegreen", "darkred", "bisque")
+
+#color palette with gradient with 20 steps
+colors_ramp <- colorRampPalette(c("darkgreen", "azure","goldenrod"))(20)
+
+#Color variables
+
+#define individual colors for plot elements
+plotline_color <- "darkgreen" #define color for plot lines
+fill_color <- "#ADF097" #define color for fill
+
+#Custom ggplot configurations 
+
+#Create a custom theme for ggplot with font, legend, and background settings. Transparent allows transparent png or pdf export.
+my_theme <- theme(text = element_text(family = "Arial", size = 12, color = "grey10"), #set universal font family, size, and color
+              plot.title = element_text(size = 20, color = "darkblue", face="bold"), #set title size, color, bold
+              plot.title.position = "plot", #set title position
+              plot.subtitle = element_text(size = 16, color = "blue", face="italics"), #set subtitle size, color, italics
+              legend.title = element_blank(), #remove legend title
+              legend.position="bottom", legend.box = "horizontal", #show legend at the bottom of your chart with variables listed side by side rather than stacked
+              legend.background = element_rect(fill='bisque', linetype="solid", size=0.5, color ="darkblue"), #set appearance of legend box with fill color, and outline size, type, and color
+              panel.background = element_rect(fill='transparent'), plot.background = element_rect(fill='transparent', color=NA), #make backgrounds transparent
+              panel.grid.major = element_blank(), panel.grid.minor = element_blank()) #no gridlines
+
+```
+
+Additionally, you can pre-define the order in which data are plotted and labels for your plots to make them more readable and consistent. This can be especially helpful if you have long, vague, or confusing variable names that you'd like to change for your plots. 
+
+```{r labels, echo=FALSE}
+
+#Create an order of observations within a variable to override the default order for plots
+order_variable <- c("obs1", "obs4", "obs2", "obs5", "obs3")
+
+#Labels for plots
+#example change variable names to have prettier and more consistent names in your plots
+lbls_variable <- c("super_long_ugly_name"="Pretty Name 1", "vague_name"="Pretty Name 2", "confusing_name"="Pretty Name 3")
+
+```
+
+
+# Prepare data
+
+## Download data from a web source
+
+If you need public data for your project, you can create an if/else loop to download the data if it isn't already in your working directory.
+
+```{r download data, echo=TRUE}
+
+#Download data
+
+#if/else loop to download a file if the file isn't already in your working directory
+if(file.exists('/file.csv')){ #if a file exists in working directory
+		print('downloaded') #print result
+	} else{ #if it doesn't exist
+		download.file("https://...", destfile= "filename.zip") #download a zipped file from a link and name it
+		unzip("filename.zip", exdir= ".") #unzip the downloaded file
+		file.remove("filename.zip") #remove the zipped file after it's unzipped
+	} #end loop
+
+```
+
+## Load in data
+
+Load in your data here by adjusting the code in this chunk. I've included a couple possible file types.
+
+```{r load data, echo=FALSE}
+
+#Load in your data
+
+#Read in csvs from your computer
+dataframe1 <- read_csv("dataframe.csv") #load csv into R from current working directory
+dataframe2 <- read.csv("C:/Users/...pathway/dataframe.csv") #load csv into R from any path on your computer
+
+#Read in excel file with xlsx extension from your computer - uses read_excel library 
+dataframe <- read_xlsx(
+  "dataframe.xlsx", #excel file from current working directory
+	sheet = "SheetName", #define tab/sheet to read  
+	col_names = TRUE, #use header row for column names  
+	col_types = NULL, #guess data types  
+	na = "", #treat blank cells as NA  
+	trim_ws = TRUE, #trim any whitespace/unused columns and rows  
+	skip = 6, #skip 6 rows to get to pivot table data  
+	n_max = Inf, #set maximum number of rows to include - infinity
+	guess_max = min(1000, Inf), #how many rows to use to guess data types  
+	progress = readxl_progress(), #display progress in reading in data  
+	.name_repair = "unique" #makes sure all column names not empty or duplicated
+)
+
+```
+
+## Cleaning and manipulating data
+
+Your data may need a bit of manipulation to get started. For example, tidying column names, changing data types, calculating additional columns, pivoting, and combining dataframes are common needs at the beginning of analysis. Adjust the code in this section to suit the needs of your project.
+
+### Look at and clean data
+
+It can be helpful to look at and adjust some of the characteristics of your dataframe before you continue to analysis. I've included a few options below you can adjust or delete as needed to clean and prepare your data for analysis.
+
+Note the Tidyverse mutate(across()) function or similar mutate_at() can be adjusted to any specific column numbers or names, data type with the added (where()) argument, or "everything" to apply to the entire dataframe. You can see more selection options in the [tidyselect documentation](https://tidyselect.r-lib.org/reference/language.html).
+
+```{r clean data, echo=FALSE}
+
+#Cursory look at your data to see if it needs cleaning up
+head(dataframe) #view the first 6 rows
+str(dataframe) #view the structure of the dataframe (columns, data types, etc.)
+
+#Use base, dplyr (tidyverse) and janitor libraries to clean data
+dataframe <- dataframe %>%
+  clean_names() %>% #clean column names to lowercase, with underscores
+  row_to_names(row_number = 1) %>% #set the first row as the header column
+  column_to_rownames(var="variable1") %>% # sets variable column as row names
+  mutate(across(where(is.character), as.factor)) %>% #define variables that should be treated as a factor (usually those containing a characters, such as "site" or "treatment")
+  mutate(across(c(5:10), as.numeric)) #define numeric variables
+
+#Look at full dataframe to see that you're satisfied with the clean-up
+dataframe #view full dataframe
+
+```
+
+### Deal with missing values
+
+If you have missing values (called NA values) in your data, there are a few ways you could choose to handle them to avoid errors further down the road. Note you'll still need to set an action to deal with NA values in some analyses, but making sure that all of your missing values are labelled correctly, filled in, or removed now can ensure all goes smoothly later.
+
+#### Set missing values to NA
+
+Functions in R have arguments to deal with NA values. For example, the argument na.rm = TRUE will remove NA values before computation in base R functions. In many other functions, na.action determines what to do with NA values. It generally defaults to na.action = na.fail, throwing an error, but na.action = na.omit will perform a function with only complete cases, i.e. omit observations with NA values. 
+
+In order to use NA arguments though, you'd need to have missing values coded as NA. From looking at your data above, you might have noticed how missing values were handled - were they set as 0, left blank, or was another value typed in, such as "NULL"? If you had missing values input as something other than NA but should be NA, you can replace those values with NA. Below are examples from base R and tidyverse dplyr library.
+
+```{r set NA 1, echo=FALSE}
+
+#Replace across a dataframe with base R
+dataframe[dataframe == 0] <- NA #replace 0 with NA across a dataframe
+dataframe[dataframe == ""] <- NA #replace blanks with NA across a dataframe
+dataframe[dataframe == "NULL"] <- NA #replace any value defined here with NA across a dataframe
+is.na(dataframe) <- sapply(dataframe, is.infinite) #turn infinite values into NA values
+
+#Replace values across a dataframe using dplyr (tidyverse)
+dataframe <- dataframe %>%
+	mutate(across(where(is.numeric), ~na_if(.,0))) %>% #replace 0s with NA across all numeric variables
+	mutate(across(where(is.factor), ~na_if(.,""))) %>% #replace blanks with NA across all factor variables
+  mutate(across(everything(), ~na_if(.,"NULL"))) #replace any value defined here with NA across all variables
+
+#Replace across a specific column with base R
+dataframe$column[dataframe$column == 0] <- NA #replace 0 with NA in a specific column
+
+#Replace across specific columns with dplyr (tidyverse)
+dataframe <- dataframe %>%
+  mutate_at(vars(variable1, variable2), ~na_if(.,0)) #replace 0s with NA
+
+```
+
+#### Set a value to NA values
+
+There are also instances in which you might want to do the opposite from above and turn NA values into zeros or other values. For example, you may want to use zeros instead of NA for missing values for plant cover or observations of an animal, or you may want to analyze how many missing values are in a variable. Here again you can change these using either base R or tidyverse dplyr library.
+
+```{r set NA 2, echo=FALSE}
+
+#Replace values across a dataframe using base R
+dataframe[is.na(dataframe)] <- 0 #replace NA values with 0 across a dataframe
+dataframe[is.na(dataframe)] <- "NULL" #replace NA values with NULL across a dataframe
+
+#Replace values across a dataframe using dplyr (tidyverse)
+dataframe <- dataframe %>%
+	replace(is.na(.), 0) #replace NA values with 0 - can replace with any value or string
+
+#Replace across a specific column with base R
+dataframe$column[is.na(dataframe$column)] <- 0 #replace NA values with 0 in a column
+dataframe$column[is.na(dataframe$column)] <- "NULL" #replace NA values with NULL in a column
+
+#Replace across specific columns with dplyr (tidyverse)
+dataframe <- dataframe %>%
+  mutate_at(vars(variable1, variable2), ~replace_na(., 0)) #replace NA values with 0
+
+```
+
+#### Interpolate missing values
+
+A third option that works well for some kinds of data is to interpolate the missing values so you don’t have any NA values. This option might work best for missing values in a time series when you have an earlier and later measured value. Of course this option should be approached with caution to avoid having misleading results.
+
+Values can be interpolated for specific variables using the zoo package. Linear interpolation uses a straight line between points to estimate missing data. Polynomial interpolation is generally more accurate for most data, as it defines a complex shape from the existing data before estimating missing values. 
+
+```{r interpolate, echo=FALSE}
+
+#Interpolate missing values with zoo package and dplyr (tidyverse)
+dataframe_int <- dataframe %>%
+	mutate(variable1 = na.approx(variable1), #interpolate via linear interpolation
+	variable2 = na.spline(variable2)) #interpolate via polynomial interpolation 
+
+```
+
+## Add to your data
+
+### Calculate new variables
+
+If you need to calculate new variables based on existing data, you can do so using base R or the mutate function from the tidyverse dplyr library. A key benefit of dplyr here is that you can chain together multiple calculations, making it easier to read and understand your code. Additionally, you can use conditional statements with the function case_when() to calculate new columns based on specific conditions. 
+
+```{r new columns, echo=FALSE}
+
+#Calculate new columns using base R
+dataframe$newcolumn = dataframe$variable1 + dataframe$variable2 #add a column that is the sum of 2 other columns in a dataframe - can be done with other math functions as well
+dataframe$newcolumn = dataframe$variable / sum(dataframe$variable) #add a column that is a percentage of the sum of another column
+
+#Calculate new columns using dplyr (tidyverse), including conditional statements
+dataframe <- dataframe %>%
+	mutate(newcolumn1 = variable1 + variable2) %>% #add a column that is the sum of 2 other columns in a dataframe - can be done with other math functions as well
+  mutate(newcolumn2 = (variable3/sum(variable3, na.rm = TRUE))) %>% #add a column that is a percentage of the sum of another column
+  mutate(newcolumn3 = #combine mean values from two columns example
+           case_when(variable.x > 0 & variable.y > 0 ~ (variable.x + variable.y)/2, #If both variables are greater than 0, return the mean of the two
+                           variable.x > 0 | variable.y == NA ~ variable.x, #If variable x is greater than 0 and variable y is NA, return variable x
+                           variable.x == NA | variable.y > 0 ~ variable.y, #If variable x is NA and variable y is greater than 0, return variable y
+                           TRUE ~ NA)) #If none of the above conditions, return a default value NA
+
+```
+
+### Ecological calculations of new variables
+
+If you're working with ecological data, there are a few common calculations you might need to make. For example, you might want to calculate species richness, the Shannon index, and Simpson index for biodiversity. You might also consider calculating community weighted means based on traits and species abundance. Below are examples of how you can calculate these using the vegan and BAT (Biodiversity Assessment Tools) libraries.
+
+For these calculations, you need to have your species data in a wide format, with each species representing a column. If your data is in a long format, you can use the pivot_wider function from the tidyr library to convert it to a wide format first.
+
+```{r ecol calcs, echo=FALSE}
+
+#Pivot data to wide format if needed
+species_df_wide <- species_dataframe %>%
+  pivot_wider(names_from = species, values_from = abundance) %>% #determines observation name and value columns
+  replace(is.na(.), 0) %>% #make any missing values 0
+  column_to_rownames(var="observation") #sets observation column as row names
+
+#Calculate species richness, Shannon index, and Simpson index with vegan library
+species_richness <- specnumber(species_df_wide) #calculate species richness
+shannon <- diversity(species_df_wide, index = "shannon") #calculate Shannon index
+simpson <- diversity(species_df_wide, index = "simpson") #calculate Simpson index
+
+#Combine biodiversity metrics into a dataframe
+diversity <- do.call(rbind, Map(data.frame, shannon=shannon, simpson=simpson, species_richness=species_richness)) %>% #combine into dataframe with column names matching
+  rownames_to_column(var = "observation") #put observations back into column
+
+#Calculate community weighted means with BAT library
+traits_cwm <- cwm(species_df_wide, trait_dataframe, method = "mean", abund = TRUE, na.rm = TRUE) #calculate community weighted means based on trait data
+traits_df <- as.data.frame(traits_cwm) %>% #make into dataframe
+  rownames_to_column(var = "observation") #put observations back into column
+
+```
+
+### Combine dataframes
+
+Now you may have data in multiple dataframes that you need to combine. There are multiple methods to do this using base R or the tidyverse dplyr library or a combination of both. Some examples are provided here.
+
+```{r combine, echo=FALSE}
+
+#Combine columns from 2 dataframes with base R
+combined_data <- cbind(dataframe1, dataframe2)
+
+#Combine rows from 2 dataframes with base R
+combined_data <- rbind(dataframe1, dataframe2) 
+
+#Combine columns from 2 dataframes with dplyr (tidyverse)
+combined_data <- bind_cols(dataframe1, dataframe2)
+
+#Combine rows from 2 dataframes with dplyr (tidyverse)
+combined_data <- bind_rows(dataframe1, dataframe2)
+
+#Join dataframes by shared variables, keeping only matching rows with dplyr (tidyverse)
+combined_data <- inner_join(dataframe1, dataframe2,
+	by==c('variable1','variable2')) #inner join by shared variables
+
+#Join dataframes by shared variables, keeping all rows from the left dataframe with dplyr (tidyverse)
+combined_data <- left_join(dataframe1, dataframe2,
+	by==c('variable1','variable2')) #left join by shared variables
+
+#Join dataframes by shared variables, keeping all rows from both dataframes with dplyr (tidyverse)
+combined_data <- full_join(dataframe1, dataframe2,
+	by==c('variable1','variable2')) #full join by shared variables
+
+#Merge dataframes by shared variables with base R and dplyr (tidyverse) with option to keep or not keep matching rows and columns
+combined_data <- merge(dataframe1, dataframe2, 
+	by=c('variable1','variable2'), #merge by shared variables
+	all.x = TRUE, #include rows for which there isn't a value in both dataframes
+	all.y = TRUE) #include columns for which there isn't a value in both dataframes	
+
+#You can also string combining functions together with dplyr (tidyverse)
+combined_data <- merge(dataframe1, dataframe2, by=c('variable1','variable2')) %>%
+  merge(dataframe3, by='variable1') %>% #merge another dataframe in
+  bind_cols(dataframe4[,c(1:3)]) #add 3 columns from another dataframe
+
+```
+
+
+## View variances and distribution of data
+
+Now that the data is cleaned and missing values are dealt with, it can be useful to take a look at the variances and distribution of the data. This can help you assess potential data standardization and transformation needs to meet assumptions for some analyses. Adjust column numbers below.
+
+```{r data dist, fig.align = "center", out.width='80%', fig.cap="Histograms of raw data distributions."}
+
+#Calculate variances for variables - the diagonal values in the matrix are variances
+var(dataframe[, 5:10]) #calculate variance for columns 5-10
+
+#ggplot histograms of data
+ggplot(melt(dataframe), aes(x=value)) + geom_histogram() + facet_wrap(~variable)
+
+```
+
+## Data transformations
+
+If your data is not normally distributed, you may need to transform it to meet the assumptions of some statistical tests. Below are examples of some common transformations you might use for ecological data. Note that it's better to test residuals when running many statistical models before deciding to use transformed data, and in some cases you may apply a different statistical method that doesn't have the same assumptions. If you do find your data doesn't match the assumptions of your analysis needs though, these can be useful transformations.
+
+### Standardization
+
+A common need for analyses such as ordination methods (principal components analysis (PCA), nonmetric multidimensional scaling (NMDS), redundancy analysis (RDA), etc.) is for data to have the same amount of variance across variables. For this, you need to standardize your data to allow for a more accurate comparison and analysis of the relative influence of variables that are measured at different scales and in different units.
+
+Standardization generally involves dividing values by a calculated number to reduce variance. Z-score standardization requires dividing by the Z-score, which is the number of standard deviations each data point is from the mean. 
+
+```{r data std, fig.align = "center", out.width='80%', fig.cap="Histograms of standardized data distributions."}
+
+#Z-score standardize numeric data
+df_std <- dataframe %>%
+  mutate_if(is.numeric, ~scale(., center = TRUE, scale = TRUE))
+
+#ggplot histograms of data
+ggplot(melt(df_std, value.name = "value"),aes(x=value)) + geom_histogram() + facet_wrap(~variable)
+
+```
+
+### Log and arcsin transformations
+
+If your data is not normally distributed, you may need to transform it to meet the assumptions of some statistical tests. 
+
+Let's start with a couple widely-used transformations. If your data is right (positively) skewed, you can log transform it to make it more normally distributed. If your data is a percentage value, you can arcsin transform it to stabilize the variance.
+
+```{r log arcsin, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after log and arcsin transformations."}
+
+#log and arcsin transform
+df_log_asin <- dataframe %>%
+  mutate(across(c(3:8), log)) %>% #log transform columns 3-8
+  mutate(across(c(9:10), ~.x/100)) %>% #for columns 9 and 10 input as 0 to 100, make into between 0 and 1
+  mutate(across(c(9:10), ~asin(sqrt(.x)))) #arcsin transform percentage data
+
+#ggplot histograms of data
+ggplot(melt(df_log_asin, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+#scale transformed data
+df_la_std <- df_log_asin %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
+
+```
+
+### Hellinger transformation
+
+Another transformation that can be useful for ecological data is the Hellinger transformation. This transformation is particularly useful for compositional data, such as species abundance data, and is often used in ordination methods.
+
+```{r hellinger, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after Hellinger transformation."}
+
+#Hellinger (square root) transform with vegan library
+df_hellinger <- dataframe %>%
+  dplyr::select((where(is.numeric))) %>% #select only numeric columns
+  decostand(., #call decostand transformation function
+				 method = "hellinger", #transformation method
+				 zap = FALSE, #make near zero values into zeros to avoid exaggeration
+				 na.rm = TRUE) %>% #remove NA values
+  bind_cols(dataframe %>% dplyr::select(!where(is.numeric))) #bind non-numeric columns back to dataframe
+
+#ggplot histograms of data
+ggplot(melt(df_hellinger, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+#scale transformed data
+df_h_std <- df_hellinger %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
+
+```
+
+### Box-Cox transformation
+
+While there are lots more transformation options out there, one more I'd like to highlight is the Box-Cox transformation, used to stabilize variance and make data more closely conform to a normal distribution. It calculates a lambda value for each variable to transform the data towards normality from either left or right skewness. Since most transformations are for right-skewed data, the ability of Box-Cox to adjust data in either direction is a valuable feature.
+
+```{r boxcox, fig.align = "center", out.width='80%', fig.cap="Histograms of data distributions after Box-Cox transformation."}
+
+#function to handle Box-Cox transformation with NA and zero values
+box_cox_transform <- function(x) {
+  # Remove NA values temporarily
+  non_na <- !is.na(x)
+  x_clean <- x[non_na]
+  
+  #add small constant to handle zeros (slightly larger than 0)
+  min_nonzero <- min(x_clean[x_clean > 0], na.rm = TRUE)
+  offset <- min_nonzero/2
+  x_clean <- x_clean + offset
+  
+  #find optimal lambda
+  bc <- boxcox(x_clean ~ 1, plotit = FALSE)
+  lambda <- bc$x[which.max(bc$y)]
+  
+  #transform the data
+  if (abs(lambda) < 1e-4) { # If lambda is close to 0
+    transformed <- log(x_clean)
+  } else {
+    transformed <- (x_clean^lambda - 1)/lambda
+  }
+  
+  #put NA values back
+  result <- x
+  result[non_na] <- transformed
+  
+  return(list(transformed = result, lambda = lambda, offset = offset))
+}
+
+#apply Box-Cox transformation to all numeric columns
+box_cox_results <- list()
+df_boxcox <- dataframe
+
+for(col in names(dataframe)) {
+  if(is.numeric(dataframe[[col]])) { 
+    if(all(dataframe[[col]] >= 0, na.rm = TRUE)) { #if column has only non-negative values
+      result <- box_cox_transform(dataframe[[col]])
+      df_boxcox[[col]] <- result$transformed
+      box_cox_results[[col]] <- list(
+        lambda = result$lambda,
+        offset = result$offset
+      )
+    }
+  }
+}
+
+df_boxcox #view transformed data
+
+#ggplot histograms of data
+ggplot(melt(df_boxcox, value.name = "value"),aes(x=value)) + geom_histogram(bins=40) + facet_wrap(~variable)
+
+#scale transformed data
+df_bc_std <- df_boxcox %>%
+  mutate(across(where(is.numeric), ~scale(., center = TRUE, scale = TRUE)))
+
+```
+
+## Calculate means, standard deviations, and standard errors
+
+To get a good picture of your original data and how the functions you applied impacted them, it can be useful to evaluate the means, standard deviations, and standard errors of your data. Additionally, the calculated values can be used when plotting error bars.
+
+```{r means, warning = FALSE} 
+
+#Summary stats raw data
+df_summary <- dataframe %>%
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary #view result
+
+#Summary stats standardized data
+df_summary_std <- df_std %>%
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary_std #view result
+
+#Summary stats Box-Cox transformed data
+df_summary_transformed <- df_boxcox %>% #select dataframe with desired transformation
+  group_by(Site) %>%
+  summarise_all(funs(mean(., na.rm=TRUE), sd(., na.rm=TRUE), std.error(., na.rm=TRUE)))
+df_summary_transformed #view result
+```
+
+# Box plots and bar charts of variables of interest
+
+Now that we have a feel for the data, it can be helpful to start by looking at basic plots to show the means and variance of key response variables across a factor of interest, such as site or treatment. Below are examples of two of the most useful plot types for this purpose: box plots and bar charts.
+
+## Box plot
+
+Box plots are particularly useful for visualizing the distribution of a response variable across different levels of a factor. They show the median, quartiles, and outliers of the data, making it easy to compare the spread of the data between different groups. Additionally, box plots can help identify potential outliers to investigate further.
+
+```{r box plot, warning = FALSE, fig.cap="Shannon Index values per site."}
+
+#Box plot of a response variable value, grouped by an x variable such as site or treatment
+ggplot(dataframe, aes(x=x_variable, y=response, fill=factor(x_variable))) + #define x and y, fill by variable
+  geom_boxplot(aes(group=x_variable, value=response)) + #create box plot
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(values=colors) + #use color palette from Chunk 3 and define labels
+  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  xlab("X Variable") + ylab("Response (unit)") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('response_boxplot.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Bar chart with error bars
+
+Bar charts are a great way to visualize the mean of a response variable across different levels of a factor. Adding error bars to the bar chart can help show the variability of the data and provide a sense of the uncertainty around the mean.
+
+```{r bar chart error bars, fig.cap="Mean and standard error of response per site in (unit)."}
+
+#Change the order of observations within the x variable with pre-defined order (from Chunk 4)
+df_summary$x_variable <- factor(df_summary$x_variable, levels = order_variable) #change ordering manually
+
+#Create a bar chart with error bars
+ggplot(df_summary, aes(x=x_variable, y=response_mean, fill=variable1)) + #define x and y variables, fill by variable
+  geom_bar(stat = "identity", position = "dodge") + #create bar chart
+  geom_errorbar(aes(ymin=response_mean-response_std.error, ymax=response_mean+response_std.error), 
+                color = "grey10", width = 0.7, position = "dodge") + #add error bars, define aesthetics
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(values=colors) + #use color palette from Chunk 3
+  scale_x_discrete(labels=lbls_variable) + #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  xlab("X Variable") + ylab("Response (unit)") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('response_bar.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Stacked bar chart
+
+For proportional data, a stacked bar chart can be a useful way to visualize the proportion of different variables within a category. An example would be visualizing community composition data, where you want to see the relative abundance of different species or families within a site or treatment.
+
+```{r stacked bar, fig.cap="Proportion of variable per variable."}
+
+#Create a long dataframe with a variable to group by and variables that add up to 100%
+percent_variable_df <- dataframe %>%
+  dplyr::select(x_variable, percent_variable1, percent_variable2, percent_variable3) %>% #
+  group_by(x_variable) %>% #group by variable of interest, such as site or treatment
+  replace(is.na(.), 0) %>% #replace any NA values with 0
+  melt(, variable.name="response", value.name="value", id = "x_variable") 
+
+percent_variable$x_variable <- factor(percent_variable$x_variable, levels = order_variable) #change ordering manually
+
+#Stacked bar graph
+ggplot(percent_variable_df, aes(x=x_variable, y=value, fill=response)) + #define x and y, fill by variable
+  geom_bar(stat = "summary", add = "mean", width = 0.7, position="stack", colour="black") + #create stacked bar chart
+  my_theme + #custom theme from Chunk 3
+  scale_fill_manual(labels=c("1","2","3"), values=colors) + #use color palette from Chunk 3 and define labels
+  scale_x_discrete(labels=lbls_variable) +  #use custom labels from Chunk 4
+  ggtitle("Title of Plot") + #add plot title
+  ylab("Proportion of Response Variable") + xlab("X Variable") #add axis titles
+
+#Save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('percent_variable.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+# Multivariate exploratory analysis
+
+If you have multiple response variables or are interested in the relationships between variables, it can be difficult to know where to start. Below are a few common analyses that can help you get a better understanding of relationships within your data.
+
+## Correlations
+
+Correlations between variables can be a nice place to start. This can help you identify relationships between variables and determine which variables are good candidates for further analysis.
+
+```{r corr, fig.align = "center", out.width='100%', fig.cap="Pearson's Correlation matrix of many variables."}
+
+df_corr <- round(cor(dataframe, use = "pairwise.complete.obs"), 3) #create df for corr. matrix, will use only complete pairs (ignore other NAs), w/3 decimals
+df_corr #view correlations
+
+#test significance P values with 95% confidence interval
+cortest <- cor.mtest(dataframe, conf.level = 0.95)
+cortest #view P values
+
+#plot matrix with corrplot
+corrplot(df_corr, method = 'color', type = 'upper', #plot upper half, show as colors
+         col = colors_ramp, #set gradient colors from defined palette in Chunk 3
+         mar=c(1,0,1,0), #set margins for all incl. title - BLTR
+         tl.col = 'black',tl.cex = 0.4, #text label color, size
+         tl.srt = 90, tl.offset = 0.4, #text label angle rotation, offset
+         #order = 'FPC',  #first principal component order
+         p.mat = cortest$p, #define p values
+         insig = 'label_sig', #add *s for significance levels
+         sig.level = c(0.001, 0.01, 0.05), #define significance levels
+         pch.cex = 0.3, #star sizes
+         cl.cex = 0.5, #color legend text size
+         cex.main = 1, #set title font size
+         title = "Correlation Matrix" #set title
+         )
+
+```
+
+## Unconstrained ordination
+
+Unconstrained ordination methods are useful for visualizing the relationships between variables in a dataset. They can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
+
+### PCA (Principal Components Analysis)
+
+Principal Components Analysis (PCA) is a common method for reducing the dimensionality of a dataset and visualizing the relationships between variables. It can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset.
+
+```{r pca, fig.align = "center", out.width='100%', fig.cap="PCA biplot of variables."}
+
+#select only columns with a value in every row, i.e. no NA values
+df_comp_std <- df_std[ , colSums(is.na(df_std)) == 0]
+df_comp_std #view selected data
+
+#PCA with base R
+pca <- prcomp(df_comp_std) #perform PCA on standardized variables - depending on the data, you may want to use the transformed and standardized data instead of just standardized data
+
+summary(pca) #view importance of principal components and proportion of variances
+pca$rotation #view loadings from the standardized data
+screeplot(pca) #diagnostic plot to make sure principal components are in order
+
+#Create biplot of PCA results
+autoplot(pca, data = df_comp_std, #plot pca from pca model and data
+				 colour = 'Site', #choose variable to separate by, such as site or species
+         loadings = TRUE, loadings.colour = '#C8AF67', #show loadings, define color
+         loadings.label = TRUE, loadings.label.size = 3, 
+				 loadings.label.colour = 'black',
+				 #label = TRUE, label.size = 3, #show labels for datapoints
+) + my_theme + #custom theme from Chunk 3
+  ggtitle("PCA Biplot") #add plot title
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('data_pca.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+### NMDS (Nonmetric Multidimensional Scaling)
+
+Nonmetric Multidimensional Scaling (NMDS) is another method for visualizing the relationships between variables in a dataset. It is particularly useful for ecological data, where the relationships between variables may not be linear and data may not meet the assumptions of a PCA. NMDS can help you identify patterns in your data and determine which variables are most important for explaining the variation in your dataset. However, it's important to note that NMDS may not be as interpreted in the same way as PCA.
+
+```{r nmds, fig.cap="Nonmetric multidimensional scaling (NMDS) plot, using the Bray-Curtis dissimilarity coefficient."}
+
+#create distance matrix with Bray-Curtis dissimilarity using the vegan package
+df_dist <- vegdist(dataframe, method = "bray", na.rm = TRUE) #change method to other dissimilarity measures as needed
+df_dist <- as.matrix(df_dist, labels = TRUE) #convert to matrix
+df_dist #view distance matrix
+
+#check for complete rows - if not enough, might consider removing columns with too many NAs
+df_completerows <- df_std[complete.cases(df_std), ] #check how many complete rows left for envfit
+df_completerows #view complete rows
+
+df_nmds <- df_std[,-c(1:2,5)] #remove categorical variables and variables with too many NAs - change column numbers as needed
+
+#NMDS with vegan package
+#test how many axes are appropriate
+stress <- vector(length = 6)
+for (i in 1:6) {
+    stress[i] <- metaMDS(df_nmds, distance = "bray", k = i,
+                         model = "global", #calc stress on ranks of data
+                         maxit = 400, #max iterations of configuration adjustments
+                         try = 20, trymax = 20, #min and max runs
+                         autotransform = FALSE, #don't transform data
+                         weakties = TRUE, #set fitted distances as un-fixed
+                         scaling = TRUE, #re-scale ordination axes
+                         na.rm = TRUE)$stress
+}
+names(stress) <- paste0(1:6, "Dim")
+par(mar = c(3.5,3.5,1,1), mgp = c(2, 0.6, 0), cex = 0.8, las = 2)
+barplot(stress, ylab = "stress")
+
+#run NMDS with 3 axes - change number of axes as needed
+set.seed(42) #set seed for reproducibility
+nmds <- metaMDS(df_nmds, distance = "bray", #data & distance measure
+                k = 3, #number of axes
+                model = "global", #calc stress on ranks of data
+                maxit = 400, #max iterations of configuration adjustments
+                try = 20, trymax = 200, #min and max runs
+                autotransform = FALSE, #don't transform data
+                weakties = TRUE, #set fitted distances as un-fixed
+                pc = TRUE, #rotate axes using PCA to orient first 2 axes as containing most of the variability
+                scaling = TRUE, #re-scale ordination axes to ‘unit root mean squares’
+                na.rm = TRUE) #remove NA values
+
+nmds #check "stress" value to see how well the data is represented by the ordination
+goodness(nmds) #check goodness of fit for each point
+stressplot(nmds, main = "Shepard plot") #diagnostic plot
+
+#make fit vectors and view
+nmdsfit <- envfit(nmds, df_nmds, permutations = 999, na.rm=TRUE)
+nmdsfit #check fit vectors
+
+#plot with base R
+{ordiplot(nmds, type = "n")
+orditorp(nmds, display = "sites", labels = F, pch = c(16))
+plot(nmdsfit, p.max = 0.054, col = "black", cex = 0.7)} # change the significance level of species shown with p.max
+
+#make df of scores
+nmds_scores <- as.data.frame(scores(nmds))
+nmds_scores$cat_variable = df_std$cat_variable #add back categorical variable for coloring
+
+#make df of vectors, only significant vectors
+nmds_vectors <- as.data.frame(scores(nmdsfit, display = "vectors")) #extracts relevant scores from envifit
+nmds_vectors <- cbind(nmds_vectors, variable = rownames(nmds_vectors)) #and then gives them their names
+nmds_vectors <- cbind(nmds_vectors, pval = nmdsfit$vectors$pvals) # add pvalues to dataframe
+sig_vectors <- subset(nmds_vectors, pval<=0.054) #subset data to show variables significant at rounded 0.05
+
+#plot scores with ggplot
+ggplot(nmds_scores) + 
+  geom_point(size = 2, aes(x = NMDS1, y = NMDS2, color = cat_variable)) + #add points and color by variable
+  geom_segment(data = sig_vectors,  #add vector arrows of significant variables
+              aes(x = 0, xend = NMDS1 * 400, #add scaling factor
+                  y = 0, yend = NMDS2 * 400), 
+              arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+              color = "grey10", 
+              lwd = 0.3) +
+  geom_text_repel(data = sig_vectors, #add labels for variables that don't overlap
+                  aes(x = NMDS1 * 400, #add scaling factor
+                      y = NMDS2 * 400, 
+                      label = variable), 
+                  size = 3,
+                  max.overlaps = Inf) +
+  labs(x = "NMDS1", y = "NMDS2", color = "variable1") +
+  coord_fixed() + #ensures axes are on the same scale
+  my_theme #custom theme from Chunk 3
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('NMDS_date.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+  
+```
+
+# Analyze specific relationships
+
+Now that you have a better understanding of the relationships between variables in your dataset, you can start to analyze specific relationships in more detail. Below are examples of common analyses you might use to test specific hypotheses or explore relationships between variables.
+
+## Linear Regression, Linear Mixed Models, Generalized Linear Models
+
+Linear regression is a common method for analyzing the relationship between a continuous response variable and one or more predictor variables. It can help you determine the strength and direction of the relationship between variables and make predictions based on the model. Additionally, group-wise comparisons such as analysis of variance (ANOVA), discussed further below, depend on linear regression.
+
+Linear mixed models (LMMs) are a powerful tool for analyzing data with a hierarchical structure, such as repeated measures or nested data. They allow you to account for the correlation between observations within the same group and to model the random effects of the grouping variable.
+
+Generalized linear models (GLMs) are an extension of linear regression that can be used for non-normal response variables, such as binary, count, or proportional data. They allow you to model the relationship between a response variable and one or more predictor variables using a variety of link functions.
+
+```{r lm, warning = FALSE}
+
+#Linear regression with base R
+lm_model <- lm(response ~ predictor1 + predictor2, data = dataframe) #model with 2 predictor variables
+
+#Linear mixed model with lme4 library, setting a random variable such as site or block
+lme_model <- lmer(response ~ predictor1 * predictor2 + (1|randomvariable), #model with 2 interacting predictor variables and 1 random variable
+    REML = TRUE, #restricted maximum likelihood (REML) for model comparison 
+    data = dataframe, #choose dataframe
+    na.action = na.omit) #omit observations with NA values
+
+#Generalized linear model with lme4 library, setting a link function such as binomial or poisson
+glm_model <- glmer(response ~ predictor1 + predictor2 + (1|randomvariable), #model with 2 predictor variables and 1 random variable
+    family = binomial(link = "logit"), #binomial link function
+    data = dataframe, #choose dataframe
+    na.action = na.omit) #omit observations with NA values
+
+```
+
+## Model checks and fit for regression models
+
+After fitting a regression model, it's important to check the assumptions of the model and assess the fit of the model to the data. Below are some common checks you might perform to evaluate the fit of your model. These include checking the normality of residuals, multicollinearity, and model assumptions. You can also use the performance library to check the assumptions of your model and assess the fit of the model to the data.
+
+```{r model checks, warning = FALSE}
+
+#Summary including residual quantiles, variance explained by random effects (in mixed model), fixed effects, and correlation of fixed effects
+summary(lm_model) #view summary of linear regression model
+
+#Plot residuals with base R
+qqnorm(resid(lm_model), main = "Normal Q-Q Plot", 
+			 xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
+			 plot.it = TRUE, col = "darkgrey")
+qqline(resid(lm_model), distribution = qnorm,
+       probs = c(0.25, 0.75), 
+			 col = "dodgerblue", lwd = 2) #create line for normal distribution
+
+#Check assumptions and fit of linear regression model (regular, mixed model or generalized model) with performance library and MuMIn library
+shapiro.test(resid(lm_model)) #check normality of residuals
+check_collinearity(lm_model) #calculate variance inflation factors (VIF) to check for multicollinearity
+performance::check_model(lm_model) #plot model checks
+performance::r2(lm_model, multivariate=TRUE) #calculate R-squared for model fit
+AIC(lm_model) #calculate AIC for model comparison
+MuMIn::AICc(lm_model, k=2) #calculate AICc for for model comparison with small sample sizes
+
+```
+
+## ANOVA and non-parametric alternatives
+
+If you have a continuous response variable and a categorical explanatory variable such as site or treatment, you can use an analysis of variance (ANOVA) to test for differences between groups. If you're not sure which ANOVA to use, here's a quick guide:
+
+How many “ways”?
+- One-way ANOVA is used with a single predictor variable.
+- Two-way ANOVA is used to determine the effects of two predictor variables on a response variable.
+- Three-way or three-factor is used to determine the effects of three predictor variables on a response variable.
+
+What about types?
+- Type I ANOVA: “sequential” sum of squares: tests the first factor without controlling for the other factor. Most commonly used when there is only one predictor variable.
+- Type II ANOVA: tests for each main effect after the other main effect. Appropriate when there's no interaction between factors, and statistically more powerful than type III in this case.
+- Type III ANOVA: tests for the presence of a main effect after the other main effect and interaction. Appropriate when there may be an interaction between factors.
+
+There are also variations of ANOVA that can be used to assess co-variance (ANCOVA), similarities (ANOSIM), or more complex relationships with multiple response variables (MANOVA, PERMANOVA). For now, let's stick with a single response variable.
+
+Another consideration though is the assumption of homogeneity of variance. While we looked at variance above, which might give us an idea of whether this assumption is met, we can use Bartlett's test to formally test the null hypothesis that each group has the same variance. If the P-value from this test is less than 0.05, we reject the null hypothesis and conclude that the variances are not equal between groups.
+
+In this case, we can use Welch's ANOVA or the Kruskal-Wallis rank sum test, the nonparametric equivalent, in place of one-way ANOVA.
+
+As an alternative to multi-way ANOVA, we can use the ARTool library to perform an Aligned Rank Transform (ART) ANOVA, which is a non-parametric method that can be used with unbalanced data and is robust to outliers. 
+
+```{r anova, warning = FALSE}
+
+#Bartlett's test with base R
+bartlett.test(response ~ predictor, data=dataframe) #test for homogeneity of variance
+
+#1-way ANOVA with base R - uses internal linear regression
+aov_model <- aov(response ~ predictor, data=dataframe) #1-way ANOVA for variables within a single dataframe
+aov_model <- aov(dataframe1$response ~ dataframe2$predictor) #1-way ANOVA for variables in separate dataframes
+summary(aov_model) #view ANOVA results
+
+#Welch's 1-way ANOVA with base R
+aov_model <- oneway.test(response ~ predictor, data=dataframe, var.equal = FALSE) #Welch's 1-way ANOVA, set equal variance to false
+
+#Kruskal-Wallis rank sum test with base R
+kw_model <- kruskal.test(response ~ predictor, data=dataframe) #Kruskal-Wallis rank sum test
+
+#Anova with car library on linear regression model for additional predictors
+Anova(lm(response ~ predictor1 + predictor2 * predictor3, #test interactions with *
+    data = dataframe), 
+    type = 3) #change type here: type 3 for possibility of interactions, or type 2 if no interactions
+    
+#Run Anova on a previously defined linear regression model (univariate, multiple, or mixed)
+Anova(lm_model, type=3) #run ANOVA on model
+
+#Aligned Rank Transform (ART) ANOVA with ARTool library
+art(data = dataframe, response = "response", predictors = c("predictor1", "predictor2"), #define response and predictor variables
+                 random = "randomvariable", #define random variable
+                 method = "anova") #run ART ANOVA
+
+```
+
+## Post-hoc tests
+
+If you find a significant difference between groups, you can follow up with post-hoc tests to determine which groups are different from each other. 
+
+Common post-hoc tests include Tukey's HSD, Bonferroni, and Dunnett's tests. Tukey's HSD is a popular post-hoc test that compares all possible pairs of means and adjusts for multiple comparisons. Bonferroni is a more conservative test that adjusts the significance level based on the number of comparisons. Dunnett's test is used to compare all treatment groups to a control group.
+
+A non-parametric post-hoc alternative is the Dunn test, which is used in place of Tukey's HSD when the assumption of homogeneity of variance is violated.
+
+```{r posthoc, warning = FALSE}
+
+#Tukey's HSD post-hoc test with base R
+TukeyHSD(aov_model) #Tukey's HSD post-hoc test
+
+#Tukey post-hoc tests with emmeans to assess from linear model when using multiple predictors
+pairs(emmeans(lm_model, ~ predictor1 + predictor2 * predictor3), adjust = "tukey") #Tukey test differences between each group estimated marginal means from linear regression model
+
+#Bonferroni post-hoc test with base R
+pairwise.t.test(dataframe$response, dataframe$predictor, p.adj = "bonferroni") #Bonferroni post-hoc test
+
+#Dunnett's post-hoc test with base R
+dunnettTest(aov_model, "control") #Dunnett's post-hoc test to compare to control group
+
+#Dunn test with dunn.test library
+dunn.test(dataframe$response, dataframe$predictor, method = "bonferroni") #Dunn test with Bonferroni correction
+
+```
+
+## Plot linear regression
+
+```{r lm plot, warning = FALSE, fig.height = 5, fig.width = 3.5, fig.cap="Linear model of response variable by predictor variable."}
+
+#Plot linear regression with ggplot
+ggplot(data = dataframe, aes(x=predictor, y=response)) + #define x and y variables
+  geom_point(color="grey10") + #add data points
+  geom_smooth(method="lm", se=TRUE, color=plotline_color, fill=fill_color) + #add linear regression line with confidence interval fill
+  xlab("Predictor") + ylab(expression(paste("Response (unit)"))) +
+  scale_y_continuous(breaks = pretty(c(0,50), n = 5)) + #change limits and number of tick marks on y axis
+  my_theme
+
+```
+
+# Constrained ordination for hypothesis testing
+
+If you have specific hypotheses you want to test or want to determine the relationship between response variables and predictor variables, you can use constrained ordination methods. These methods allow you to test the significance of predictor variables and determine the strength and direction of the relationship between variables.
+
+## RDA (Redundancy Analysis)
+
+Redundancy Analysis (RDA) is a constrained ordination method that allows you to test the significance of predictor variables and determine the strength and direction of the relationship between variables. It is particularly useful for analyzing the relationship between response variables and predictor variables and can help you identify the variables that are most important for explaining the variation in your dataset.
+
+```{r rda, fig.align = "center", out.width='100%', fig.cap="Redundancy Analysis (RDA) plot of variables."}
+
+#put response variables into dataframe from standardization and best transformation
+respvar <- df_bc_std[,c("response1", "response2")] #select response variables
+
+#put predictor variables into dataframe from standardization and best transformation
+predvar <- df_bc_std[,-c("response1", "response2", "response3")] #select all but response variables
+pred_comp <- predvar[ , colSums(is.na(predvar)) == 0] #select only columns with a value in every row, i.e. no NA values
+
+#RDA full dataset with responses and predictors with vegan library
+rda <- rda(respvar ~., #define response matrix
+             data=pred_comp, #define predictor matrix
+             scale=FALSE, #don't scale variables - transformed ahead of time
+             na.action = na.omit) #omit NA values
+summary(rda) #view summary of RDA
+
+#forward selection of variables with vegan library
+fwd_sel <- ordiR2step(
+  rda(respvar ~ 1, data = pred_comp, ##lower model limit 1
+      na.action = na.omit), #na action
+  scope = formula(rda), #upper model limit (the "full" model)
+  direction = "forward",
+  R2scope = TRUE, #can't surpass the "full" model's R2
+  pstep = 1000,
+  trace = TRUE)
+
+fwd_sel$call #call reduced formula
+
+#RDA with selected variables from reduced formula
+sel_rda <- rda(formula = respvar ~ predictor1 + predictor2 + predictor3 + predictor4, 
+               data = pred_comp, na.action = na.omit)
+anova.cca(sel_rda, by = "term") #test variables
+anova.cca(sel_rda, by = "axis") #test RDA axis significance
+RsquareAdj(sel_rda) #test R-squared for model fit
+
+#base R ordination plot
+ordiplot(sel_rda, scaling = 2, type = "t") #scaling 2 reflects correlations
+
+#plot scores with ggplot
+
+#make dfs of values from RDA
+rda_sum <- summary(sel_rda)
+rda_sites  <- as.data.frame(rda_sum$sites[,1:2]) 
+rda_sites$Site = df_std$Site #add site back
+rda_response  <- as.data.frame(rda_sum$species[,1:2])
+rda_predictors  <- as.data.frame(rda_sum$biplot[,1:2])
+rda_vectors <- rbind(rda_response, rda_predictors)
+
+ggplot(rda_sites) + 
+  geom_point(size = 1, aes(x=RDA1, y=RDA2, colour = Site)) + #add points and color by site
+  geom_segment(data=rda_response, #add vector arrows of significant variables
+               aes(x=0, xend=RDA1, 
+                   y=0, yend=RDA2), 
+               arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+                colour = "grey10", 
+                lwd = 0.3) + #line width
+  geom_text_repel(data=rda_response, 
+            aes(x=RDA1, y=RDA2,
+                label=rownames(rda_response),
+                hjust=0.5*(1-sign(RDA1)),vjust=0.5*(1-sign(RDA2))), 
+                colour = "grey10", size=3) +
+  geom_segment(data=rda_predictors, #add vector arrows of significant variables
+               aes(x=0, xend=RDA1, 
+                   y=0, yend=RDA2), 
+               arrow = arrow(length = unit(0.25,"cm"), #add arrow head, spec. length
+                            type = "open", angle = 20, #type and angle of arrowhead
+                            ends = "last"), #which end to draw arrow head
+                colour = "red", 
+                lwd = 0.3) + #line width
+  geom_text(data=rda_predictors, 
+            aes(x=RDA1, y=RDA2,
+                label=rownames(rda_predictors),
+                hjust=0.5*(1-sign(RDA1)),vjust=0.5*(1-sign(RDA2))), 
+                colour = "red", size=3) +
+  labs(x = "RDA1", colour = "Site", y = "RDA2") +
+  coord_fixed() + #ensures axes are on the same scale
+  my_theme #custom theme from Chunk 3
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+ggsave('RDA.svg', path = "Figures", width = 6, height = 4, units = "in", dpi = 300, bg=NULL)
+
+```
+
+## Variation partitioning
+
+Variation partitioning is a useful technique for quantifying the relative importance of different predictor variables in explaining the variation in a response variable. It allows you to determine the unique and shared contributions of each predictor variable to the variation in the response variable(s). Using the reduced RDA formula from above, we can perform variation partitioning to quantify the relative importance of each identified predictor variable in explaining the variation in the response variable.
+
+```{r varpart, warning = FALSE}
+
+#Variation partitioning with vegan library - use variables from RDA
+vpa <- varpart(respvar, ~ predictor1, ~ predictor2, ~ predictor3, ~ predictor4, data=pred_comp)
+vpa #view variation partitioning results
+vpa$part #view partitioning results
+
+#plot variation partitioning results
+plot(vpa, Xnames = c("predictor1", "predictor2", "predictor3", "predictor4"), #set names
+     digits=1, bg = colors, alpha=100, id.size=1.1) #set significant digits, colors and labels
+
+#save figure - name, type, folder, dimensions, resolution, background specs
+Cairo(file="Figures/vpa.svg", type="svg", width = 6, height = 4, units = "in", pointsize=12, bg = "transparent", dpi = 300)
+
+```
